@@ -1,0 +1,430 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PATIENT
+  DOCTOR
+  ADMIN
+  PHARMACY
+  LAB
+  SUPERADMIN
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  UNDER_REVIEW
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  COMPLETED
+}
+
+enum MeetingType {
+  VIDEO
+  AUDIO
+  CHAT
+}
+
+model User {
+  id                String             @id @default(cuid())
+  email             String             @unique
+  phone             String             @unique
+  password_hash     String
+  name              String
+  role              UserRole
+  is_verified       Boolean            @default(false)
+  is_active         Boolean            @default(true)
+  avatar_url        String?
+  created_at        DateTime           @default(now())
+  updated_at        DateTime           @updatedAt
+  
+  // Relations
+  patient_profile   PatientProfile?
+  doctor_profile    DoctorProfile?
+  
+  // Appointments
+  patient_appointments    Appointment[] @relation("PatientAppointments")
+  doctor_appointments     Appointment[] @relation("DoctorAppointments")
+  
+  // Messages
+  sent_messages           Message[]     @relation("SentMessages")
+  received_messages       Message[]     @relation("ReceivedMessages")
+  
+  // Payments
+  payment_transactions    PaymentTransaction[]
+  
+  // Reviews
+  reviews                 Review[]
+  
+  // Orders
+  lab_orders             LabOrder[]
+  pharmacy_orders        PharmacyOrder[]
+  
+  // Audit logs
+  audit_logs             AuditLog[]
+  
+  // OTP for verification
+  otp_code               String?
+  otp_expires_at         DateTime?
+  
+  @@map("users")
+}
+
+model PatientProfile {
+  id               String    @id @default(cuid())
+  user_id          String    @unique
+  date_of_birth    DateTime?
+  gender           Gender?
+  address          String?
+  emergency_contact String?
+  blood_group      String?
+  allergies        String[]  @default([])
+  medical_history  String?
+  insurance_info   Json?
+  
+  user             User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@map("patient_profiles")
+}
+
+model DoctorProfile {
+  id                    String                 @id @default(cuid())
+  user_id               String                 @unique
+  medical_license       String                 @unique
+  specialties           String[]               @default([])
+  qualifications        String[]               @default([])
+  experience_years      Int
+  consultation_fee      Decimal
+  languages             String[]               @default([])
+  clinic_locations      Json[]                 @default([])
+  bio                   String?
+  bank_info             Json?
+  availability_hours    Json?                  // {"monday": {"start": "09:00", "end": "17:00"}, ...}
+  is_available_online   Boolean                @default(true)
+  rating                Decimal                @default(0)
+  total_reviews         Int                    @default(0)
+  
+  user                  User                   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  verification          DoctorVerification?
+  availability_slots    AvailabilitySlot[]
+  prescriptions         Prescription[]
+  
+  @@map("doctor_profiles")
+}
+
+model DoctorVerification {
+  id                    String              @id @default(cuid())
+  doctor_id             String              @unique
+  status                VerificationStatus  @default(PENDING)
+  documents             Json[]              @default([]) // [{"type": "license", "url": "...", "filename": "..."}]
+  reviewed_by           String?
+  reviewed_at           DateTime?
+  rejection_reason      String?
+  notes                 String?
+  created_at            DateTime            @default(now())
+  updated_at            DateTime            @updatedAt
+  
+  doctor                DoctorProfile       @relation(fields: [doctor_id], references: [id], onDelete: Cascade)
+  
+  @@map("doctor_verifications")
+}
+
+model AvailabilitySlot {
+  id                    String              @id @default(cuid())
+  doctor_id             String
+  start_time            DateTime
+  end_time              DateTime
+  is_recurring          Boolean             @default(false)
+  recurrence_pattern    Json?               // {"frequency": "weekly", "days": [1, 2, 3]} for Mon, Tue, Wed
+  slot_duration         Int                 @default(30) // minutes
+  is_booked             Boolean             @default(false)
+  is_available          Boolean             @default(true)
+  created_at            DateTime            @default(now())
+  
+  doctor                DoctorProfile       @relation(fields: [doctor_id], references: [id], onDelete: Cascade)
+  appointments          Appointment[]
+  
+  @@map("availability_slots")
+}
+
+model Appointment {
+  id                    String              @id @default(cuid())
+  patient_id            String
+  doctor_id             String
+  slot_id               String?
+  status                AppointmentStatus   @default(PENDING)
+  payment_status        PaymentStatus       @default(PENDING)
+  meeting_type          MeetingType         @default(VIDEO)
+  meeting_link          String?
+  meeting_token         String?
+  scheduled_at          DateTime
+  started_at            DateTime?
+  ended_at              DateTime?
+  duration_minutes      Int?
+  notes                 String?
+  symptoms              String?
+  diagnosis             String?
+  follow_up_date        DateTime?
+  is_follow_up          Boolean             @default(false)
+  parent_appointment_id String?
+  recording_url         String?
+  recording_consent     Boolean             @default(false)
+  created_at            DateTime            @default(now())
+  updated_at            DateTime            @updatedAt
+  
+  patient               User                @relation("PatientAppointments", fields: [patient_id], references: [id])
+  doctor                User                @relation("DoctorAppointments", fields: [doctor_id], references: [id])
+  slot                  AvailabilitySlot?   @relation(fields: [slot_id], references: [id])
+  parent_appointment    Appointment?        @relation("FollowUpAppointments", fields: [parent_appointment_id], references: [id])
+  follow_up_appointments Appointment[]      @relation("FollowUpAppointments")
+  
+  prescription          Prescription?
+  payment_transaction   PaymentTransaction?
+  review                Review?
+  messages              Message[]
+  
+  @@map("appointments")
+}
+
+model Prescription {
+  id                    String              @id @default(cuid())
+  appointment_id        String              @unique
+  doctor_id             String
+  patient_id            String
+  drugs                 Json[]              @default([]) // [{"name": "Paracetamol", "dosage": "500mg", "frequency": "2 times/day", "duration": "7 days", "instructions": "After meals"}]
+  instructions          String?
+  diagnosis             String?
+  follow_up_instructions String?
+  pdf_url               String?
+  is_signed             Boolean             @default(false)
+  digital_signature     String?
+  created_at            DateTime            @default(now())
+  updated_at            DateTime            @updatedAt
+  
+  appointment           Appointment         @relation(fields: [appointment_id], references: [id], onDelete: Cascade)
+  doctor                DoctorProfile       @relation(fields: [doctor_id], references: [id])
+  pharmacy_orders       PharmacyOrder[]
+  
+  @@map("prescriptions")
+}
+
+model PaymentTransaction {
+  id                    String              @id @default(cuid())
+  user_id               String
+  appointment_id        String?             @unique
+  amount                Decimal
+  currency              String              @default("BDT")
+  status                PaymentStatus       @default(PENDING)
+  gateway_id            String              // Stripe, bKash, etc.
+  gateway_transaction_id String?
+  gateway_response      Json?
+  description           String?
+  refund_amount         Decimal?            @default(0)
+  refund_reason         String?
+  created_at            DateTime            @default(now())
+  updated_at            DateTime            @updatedAt
+  
+  user                  User                @relation(fields: [user_id], references: [id])
+  appointment           Appointment?        @relation(fields: [appointment_id], references: [id])
+  
+  @@map("payment_transactions")
+}
+
+model LabOrder {
+  id                    String              @id @default(cuid())
+  patient_id            String
+  appointment_id        String?
+  package_id            String              // Lab test package ID
+  vendor_id             String?
+  status                OrderStatus         @default(PENDING)
+  total_amount          Decimal
+  sample_collection_date DateTime?
+  sample_collection_address String?
+  result_url            String?
+  result_pdf            String?
+  lab_report_date       DateTime?
+  instructions          String?
+  created_at            DateTime            @default(now())
+  updated_at            DateTime            @updatedAt
+  
+  patient               User                @relation(fields: [patient_id], references: [id])
+  
+  @@map("lab_orders")
+}
+
+model PharmacyOrder {
+  id                    String              @id @default(cuid())
+  patient_id            String
+  prescription_id       String?
+  vendor_id             String?
+  status                OrderStatus         @default(PENDING)
+  total_amount          Decimal
+  delivery_address      String
+  delivery_date         DateTime?
+  tracking_number       String?
+  items                 Json[]              @default([]) // [{"drug_name": "Paracetamol", "quantity": 20, "price": 50}]
+  delivery_instructions String?
+  created_at            DateTime            @default(now())
+  updated_at            DateTime            @updatedAt
+  
+  patient               User                @relation(fields: [patient_id], references: [id])
+  prescription          Prescription?       @relation(fields: [prescription_id], references: [id])
+  
+  @@map("pharmacy_orders")
+}
+
+model Message {
+  id                    String              @id @default(cuid())
+  from_user_id          String
+  to_user_id            String
+  appointment_id        String?
+  body                  String
+  attachments           Json[]              @default([]) // [{"type": "image", "url": "...", "filename": "..."}]
+  is_read               Boolean             @default(false)
+  read_at               DateTime?
+  created_at            DateTime            @default(now())
+  
+  from_user             User                @relation("SentMessages", fields: [from_user_id], references: [id])
+  to_user               User                @relation("ReceivedMessages", fields: [to_user_id], references: [id])
+  appointment           Appointment?        @relation(fields: [appointment_id], references: [id])
+  
+  @@map("messages")
+}
+
+model Review {
+  id                    String              @id @default(cuid())
+  appointment_id        String              @unique
+  patient_id            String
+  doctor_id             String              // Derived from appointment but stored for easier queries
+  rating                Int                 // 1-5 stars
+  comment               String?
+  is_anonymous          Boolean             @default(false)
+  is_approved           Boolean             @default(true)
+  moderated_by          String?
+  moderated_at          DateTime?
+  created_at            DateTime            @default(now())
+  
+  appointment           Appointment         @relation(fields: [appointment_id], references: [id], onDelete: Cascade)
+  patient               User                @relation(fields: [patient_id], references: [id])
+  
+  @@map("reviews")
+}
+
+model AuditLog {
+  id                    String              @id @default(cuid())
+  user_id               String?
+  action                String              // "CREATE", "READ", "UPDATE", "DELETE"
+  resource              String              // "User", "Appointment", "Prescription", etc.
+  resource_id           String?
+  details               Json?
+  ip_address            String?
+  user_agent            String?
+  created_at            DateTime            @default(now())
+  
+  user                  User?               @relation(fields: [user_id], references: [id])
+  
+  @@map("audit_logs")
+}
+
+model SystemConfig {
+  id                    String              @id @default(cuid())
+  key                   String              @unique
+  value                 Json
+  description           String?
+  is_active             Boolean             @default(true)
+  created_at            DateTime            @default(now())
+  updated_at            DateTime            @updatedAt
+  
+  @@map("system_configs")
+}
+
+model Medicine {
+  id                    String              @id @default(cuid())
+  name                  String
+  generic_name          String?
+  brand_name            String?
+  manufacturer          String?
+  category              String              // Tablet, Capsule, Syrup, Injection, etc.
+  strength              String              // 500mg, 10ml, etc.
+  unit_price            Decimal
+  stock_quantity        Int                 @default(0)
+  description           String?
+  side_effects          String?
+  contraindications     String?
+  dosage_instructions   String?
+  prescription_required Boolean             @default(true)
+  image_url             String?
+  is_active             Boolean             @default(true)
+  created_at            DateTime            @default(now())
+  updated_at            DateTime            @updatedAt
+  
+  @@map("medicines")
+}
+
+model LabPackage {
+  id                    String              @id @default(cuid())
+  name                  String
+  description           String?
+  category              String              // Blood Test, X-Ray, MRI, etc.
+  tests_included        String[]            @default([])
+  price                 Decimal
+  preparation_required  Boolean             @default(false)
+  preparation_instructions String?
+  sample_type           String?             // Blood, Urine, Stool, etc.
+  reporting_time        String?             // 24 hours, 3-5 days, etc.
+  is_home_collection    Boolean             @default(false)
+  is_active             Boolean             @default(true)
+  created_at            DateTime            @default(now())
+  updated_at            DateTime            @updatedAt
+  
+  @@map("lab_packages")
+}
+
+model Specialty {
+  id                    String              @id @default(cuid())
+  name                  String              @unique
+  description           String?
+  icon_url              String?
+  is_active             Boolean             @default(true)
+  created_at            DateTime            @default(now())
+  
+  @@map("specialties")
+}
