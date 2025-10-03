@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { Mail, Lock, LogIn, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -10,7 +10,8 @@ import { LocalStorageManager } from "@/lib/localStorage";
 import { motion } from "framer-motion";
 import AnimatedBackground from "@/components/AnimatedBackground";
 
-export default function LoginPage() {
+// Create a separate component for the login content
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [formData, setFormData] = useState({
@@ -72,8 +73,10 @@ export default function LoginPage() {
         default:
           router.push("/");
       }
-    } catch (error: any) {
-      setError(error.message);
+    } catch (error: unknown) {
+      setError(
+        error instanceof Error ? error.message : "An unknown error occurred"
+      );
     } finally {
       setLoading(false);
     }
@@ -247,7 +250,7 @@ export default function LoginPage() {
                 </div>
                 <div className="relative flex justify-center text-sm">
                   <span className="px-2 bg-card text-muted-foreground">
-                    Don't have an account?
+                    Don&apos;t have an account?
                   </span>
                 </div>
               </div>
@@ -290,5 +293,29 @@ export default function LoginPage() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+// Create a loading component for the Suspense fallback
+function LoginLoading() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted relative overflow-hidden">
+      <AnimatedBackground />
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Main component wrapped with Suspense
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginLoading />}>
+      <LoginContent />
+    </Suspense>
   );
 }

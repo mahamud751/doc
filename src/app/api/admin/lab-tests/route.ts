@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuthToken } from "@/lib/auth-utils";
+import { Prisma } from "@prisma/client";
+
+// Define type for JWT payload
 
 // GET all lab tests for admin dropdown
 export async function GET(request: NextRequest) {
@@ -195,7 +198,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Build update object
-    const dataToUpdate: any = {};
+    const dataToUpdate: Prisma.LabTestUpdateInput = {};
 
     if (updateData.name !== undefined) dataToUpdate.name = updateData.name;
     if (updateData.code !== undefined) dataToUpdate.code = updateData.code;

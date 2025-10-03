@@ -1,32 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  Calendar,
-  Clock,
-  Video,
-  DollarSign,
-  Star,
-  MapPin,
-  User,
-  Phone,
-  ArrowLeft,
-  Sparkles,
-  Shield,
-  CheckCircle,
-  Zap,
-  Heart,
-  Brain,
-  Award,
-  TrendingUp,
-  MessageCircle,
-  FileText,
-} from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { useRouter, useParams } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  ArrowLeft,
+  Award,
+  Calendar,
+  CheckCircle,
+  Clock,
+  MapPin,
+  MessageCircle,
+  Shield,
+  Star,
+  TrendingUp,
+  User,
+  Video,
+} from "lucide-react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
-import NavigationHeader from "@/components/NavigationHeader";
+import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
 interface Doctor {
   id: string;
@@ -40,7 +32,7 @@ interface Doctor {
   bio: string;
   avatar_url?: string;
   is_available_online: boolean;
-  next_available_slots: any[];
+  next_available_slots: string[];
   avatar: string;
   hospital: string;
   languages: string[];
@@ -75,10 +67,7 @@ export default function BookDoctorPage() {
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [fetchingDoctor, setFetchingDoctor] = useState(true);
-  const [authToken, setAuthToken] = useState("");
-  const [userRole, setUserRole] = useState("");
   const [error, setError] = useState("");
-  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
   // Remove mock doctor data - will fetch from API
 
@@ -102,28 +91,13 @@ export default function BookDoctorPage() {
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>(generateTimeSlots());
 
   useEffect(() => {
-    // Check authentication
-    const token = localStorage.getItem("authToken");
-    const role = localStorage.getItem("userRole");
-
-    if (!token) {
-      router.push("/auth/login");
-      return;
+    if (selectedDate) {
+      setTimeSlots(generateTimeSlots());
+      setSelectedTime("");
     }
+  }, [selectedDate]);
 
-    if (role !== "PATIENT") {
-      router.push("/landing");
-      return;
-    }
-
-    setAuthToken(token);
-    setUserRole(role);
-
-    // Fetch real doctor data from API
-    fetchDoctor();
-  }, [doctorId]);
-
-  const fetchDoctor = async () => {
+  const fetchDoctor = useCallback(async () => {
     try {
       setFetchingDoctor(true);
       const token = localStorage.getItem("authToken");
@@ -140,20 +114,34 @@ export default function BookDoctorPage() {
 
       const data = await response.json();
       setDoctor(data.doctor || null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error fetching doctor:", error);
-      setError(error.message || "Failed to load doctor");
+      setError(
+        error instanceof Error ? error.message : "Failed to load doctor"
+      );
     } finally {
       setFetchingDoctor(false);
     }
-  };
+  }, [doctorId]);
 
   useEffect(() => {
-    if (selectedDate) {
-      setTimeSlots(generateTimeSlots());
-      setSelectedTime("");
+    // Check authentication
+    const token = localStorage.getItem("authToken");
+    const role = localStorage.getItem("userRole");
+
+    if (!token) {
+      router.push("/auth/login");
+      return;
     }
-  }, [selectedDate]);
+
+    if (role !== "PATIENT") {
+      router.push("/landing");
+      return;
+    }
+
+    // Fetch real doctor data from API
+    fetchDoctor();
+  }, [doctorId, fetchDoctor, router]); // Added missing dependencies
 
   const handleBookAppointment = async () => {
     if (!doctor || !selectedDate || !selectedTime) {
@@ -195,8 +183,10 @@ export default function BookDoctorPage() {
       router.push(
         `/patient/appointments?booking=success&appointmentId=${data.appointment.id}`
       );
-    } catch (error: any) {
-      setError(error.message);
+    } catch (error: unknown) {
+      setError(
+        error instanceof Error ? error.message : "An unknown error occurred"
+      );
     } finally {
       setLoading(false);
     }
@@ -284,8 +274,8 @@ export default function BookDoctorPage() {
             Doctor Not Found
           </h2>
           <p className="text-gray-600 mb-6">
-            The doctor you're looking for doesn't exist or is no longer
-            available.
+            The doctor you&apos;re looking for doesn&apos;t exist or is no
+            longer available.
           </p>
           <Link href="/doctors">
             <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">

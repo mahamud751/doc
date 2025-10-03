@@ -1,11 +1,38 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff } from "lucide-react";
+import { Mic, MicOff, PhoneOff, Video, VideoOff } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, Suspense } from "react";
 
-export default function PatientVideoCall() {
+// Define proper types for Agora
+interface AgoraClient {
+  on: (event: string, handler: (...args: unknown[]) => void) => void;
+  subscribe: (user: unknown, mediaType: string) => Promise<void>;
+  leave: () => Promise<void>;
+  join: (
+    appId: string,
+    channelName: string,
+    token: string | null,
+    uid: number
+  ) => Promise<void>;
+  publish: (tracks: unknown[]) => Promise<void>;
+}
+
+interface AgoraTrack {
+  close: () => void;
+  setMuted: (muted: boolean) => void;
+  play?: (element: HTMLDivElement) => void;
+}
+
+interface RemoteUser {
+  uid: string;
+  videoTrack?: unknown;
+  audioTrack?: unknown;
+}
+
+// Create a separate component for the video call content
+function PatientVideoCallContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -24,36 +51,53 @@ export default function PatientVideoCall() {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
-  const [remoteUsers, setRemoteUsers] = useState<any[]>([]);
+
+  const [remoteUsers, setRemoteUsers] = useState<RemoteUser[]>([]);
   const [initializing, setInitializing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const localVideoRef = useRef<HTMLDivElement>(null);
   const remoteVideoRef = useRef<HTMLDivElement>(null);
 
-  const clientRef = useRef<any>(null);
-  const localAudioTrackRef = useRef<any>(null);
-  const localVideoTrackRef = useRef<any>(null);
+  const clientRef = useRef<AgoraClient | null>(null);
+
+  const localAudioTrackRef = useRef<AgoraTrack | null>(null);
+  const localVideoTrackRef = useRef<AgoraTrack | null>(null);
   const isMountedRef = useRef(true);
+  const cancelTokenRef = useRef<{ cancelled: boolean }>({ cancelled: false });
+
+  // Define the AgoraRTC interface
+  interface AgoraRTCInterface {
+    createClient: (config: unknown) => unknown;
+    createMicrophoneAudioTrack: () => Promise<unknown>;
+    createCameraVideoTrack: () => Promise<unknown>;
+  }
 
   // Dynamically import AgoraRTC only on the client side
-  const [AgoraRTC, setAgoraRTC] = useState<any>(null);
+  const [AgoraRTC, setAgoraRTC] = useState<AgoraRTCInterface | null>(null);
 
   useEffect(() => {
     // Set isMounted ref to true
     isMountedRef.current = true;
+    cancelTokenRef.current = { cancelled: false };
 
     // Load AgoraRTC only on client side
     if (typeof window !== "undefined") {
       import("agora-rtc-sdk-ng")
         .then((agora) => {
-          if (isMountedRef.current) {
-            setAgoraRTC(agora.default);
+          if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
+            setAgoraRTC(
+              agora.default as {
+                createClient: (config: unknown) => unknown;
+                createMicrophoneAudioTrack: () => Promise<unknown>;
+                createCameraVideoTrack: () => Promise<unknown>;
+              }
+            );
           }
         })
         .catch((err) => {
           console.error("Failed to load AgoraRTC:", err);
-          if (isMountedRef.current) {
+          if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
             setError(
               "Failed to load video call library. Please refresh the page."
             );
@@ -64,89 +108,47 @@ export default function PatientVideoCall() {
     // Cleanup function
     return () => {
       isMountedRef.current = false;
+      cancelTokenRef.current.cancelled = true;
       cleanup();
     };
   }, []);
-
-  useEffect(() => {
-    // Validate required parameters
-    if (!channelName || !uid || !appId) {
-      console.error("Missing required parameters:", {
-        channelName,
-        uid,
-        appId,
-      });
-      if (isMountedRef.current) {
-        setError(
-          "Missing required video call parameters. Redirecting to dashboard..."
-        );
-        setTimeout(() => {
-          router.push("/patient/dashboard");
-        }, 3000);
-      }
-      return;
-    }
-
-    // Log all parameters for debugging
-    console.log("Video call parameters received:", {
-      channelName,
-      token: token ? `${token.substring(0, 20)}...` : "null",
-      uid,
-      appId: appId ? `${appId.substring(0, 8)}...` : "null",
-      appIdLength: appId.length,
-    });
-
-    // Validate App ID format
-    if (appId.length !== 32) {
-      console.error("Invalid App ID length:", appId.length);
-      if (isMountedRef.current) {
-        setError(
-          `Invalid App ID format. Expected 32 characters, got ${appId.length}. For debugging, visit: /agora-debug`
-        );
-        return;
-      }
-    }
-
-    // Check if App ID contains only valid characters
-    const hexRegex = /^[0-9a-fA-F]+$/;
-    if (!hexRegex.test(appId)) {
-      console.error("Invalid App ID characters");
-      if (isMountedRef.current) {
-        setError(
-          "Invalid App ID format. App ID should only contain hexadecimal characters. For debugging, visit: /agora-debug"
-        );
-        return;
-      }
-    }
-
-    if (AgoraRTC && !initializing) {
-      initializeAgora();
-    }
-
-    return () => {
-      cleanup();
-    };
-  }, [AgoraRTC, channelName, token, uid, appId]);
 
   const cleanup = async () => {
     try {
       // Close local tracks
       if (localAudioTrackRef.current) {
-        localAudioTrackRef.current.close();
+        try {
+          localAudioTrackRef.current.close();
+        } catch (e) {
+          // Ignore errors during cleanup
+        }
         localAudioTrackRef.current = null;
       }
 
       if (localVideoTrackRef.current) {
-        localVideoTrackRef.current.close();
+        try {
+          localVideoTrackRef.current.close();
+        } catch (e) {
+          // Ignore errors during cleanup
+        }
         localVideoTrackRef.current = null;
       }
 
       // Leave channel
       if (clientRef.current) {
         try {
-          await clientRef.current.leave();
+          await (clientRef.current as AgoraClient).leave();
         } catch (error) {
-          console.log("Error leaving channel:", error);
+          // Ignore cancellation errors during cleanup
+          if (
+            !(
+              error instanceof Error &&
+              error.name === "AgoraRTCError" &&
+              error.message.includes("OPERATION_ABORTED")
+            )
+          ) {
+            console.log("Error leaving channel:", error);
+          }
         }
         clientRef.current = null;
       }
@@ -161,7 +163,11 @@ export default function PatientVideoCall() {
 
   const initializeAgora = async () => {
     // Prevent multiple initializations
-    if (initializing || !isMountedRef.current) {
+    if (
+      initializing ||
+      !isMountedRef.current ||
+      cancelTokenRef.current.cancelled
+    ) {
       return;
     }
 
@@ -169,7 +175,11 @@ export default function PatientVideoCall() {
     setError(null);
 
     try {
-      if (!AgoraRTC || !isMountedRef.current) {
+      if (
+        !AgoraRTC ||
+        !isMountedRef.current ||
+        cancelTokenRef.current.cancelled
+      ) {
         return;
       }
 
@@ -193,73 +203,101 @@ export default function PatientVideoCall() {
       }
 
       // Create Agora client with additional options to handle vendor key issues
-      if (!clientRef.current) {
+      if (!clientRef.current && AgoraRTC) {
         clientRef.current = AgoraRTC.createClient({
           mode: "rtc",
           codec: "vp8",
           role: "host", // Explicitly set role
-        });
+        }) as AgoraClient;
       }
 
       // Handle user-published event
       const handleUserPublished = async (
-        user: any,
+        user: RemoteUser,
         mediaType: "audio" | "video"
       ) => {
-        if (!isMountedRef.current) return;
+        if (!isMountedRef.current || cancelTokenRef.current.cancelled) return;
 
         try {
-          await clientRef.current.subscribe(user, mediaType);
+          if (clientRef.current) {
+            await clientRef.current.subscribe(user, mediaType);
+          }
 
           if (mediaType === "video") {
             const remoteVideoTrack = user.videoTrack;
             if (remoteVideoTrack && remoteVideoRef.current) {
-              remoteVideoTrack.play(remoteVideoRef.current);
+              (
+                remoteVideoTrack as { play: (element: HTMLDivElement) => void }
+              ).play(remoteVideoRef.current);
             }
           }
 
           if (mediaType === "audio") {
             const remoteAudioTrack = user.audioTrack;
             if (remoteAudioTrack) {
-              remoteAudioTrack.play();
+              (remoteAudioTrack as { play: () => void }).play();
             }
           }
 
-          if (isMountedRef.current) {
+          if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
             setRemoteUsers((prev) => {
               // Check if user already exists
-              const exists = prev.find((u) => u.uid === user.uid);
+              const exists = prev.find((u: RemoteUser) => u.uid === user.uid);
               if (exists) return prev;
               return [...prev, user];
             });
           }
         } catch (error) {
-          console.error("Error handling user-published:", error);
+          // Only log the error if it's not a cancellation
+          if (
+            !(
+              error instanceof Error &&
+              error.name === "AgoraRTCError" &&
+              error.message.includes("OPERATION_ABORTED")
+            )
+          ) {
+            console.error("Error handling user-published:", error);
+          }
         }
       };
 
       // Handle user-unpublished event
-      const handleUserUnpublished = (user: any) => {
-        if (isMountedRef.current) {
-          setRemoteUsers((prev) => prev.filter((u) => u.uid !== user.uid));
+      const handleUserUnpublished = (user: RemoteUser) => {
+        if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
+          setRemoteUsers((prev) =>
+            prev.filter((u: RemoteUser) => u.uid !== user.uid)
+          );
         }
       };
 
       // Handle user-left event
-      const handleUserLeft = (user: any) => {
-        if (isMountedRef.current) {
-          setRemoteUsers((prev) => prev.filter((u) => u.uid !== user.uid));
+      const handleUserLeft = (user: RemoteUser) => {
+        if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
+          setRemoteUsers((prev) =>
+            prev.filter((u: RemoteUser) => u.uid !== user.uid)
+          );
         }
       };
 
       // Set up event listeners
-      clientRef.current.on("user-published", handleUserPublished);
-      clientRef.current.on("user-unpublished", handleUserUnpublished);
-      clientRef.current.on("user-left", handleUserLeft);
+      if (clientRef.current) {
+        clientRef.current.on(
+          "user-published",
+          handleUserPublished as (...args: unknown[]) => void
+        );
+        clientRef.current.on(
+          "user-unpublished",
+          handleUserUnpublished as (...args: unknown[]) => void
+        );
+        clientRef.current.on(
+          "user-left",
+          handleUserLeft as (...args: unknown[]) => void
+        );
+      }
 
       // Join the channel
       console.log("Attempting to join channel...");
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current || cancelTokenRef.current.cancelled) return;
 
       // Log the exact parameters being used
       console.log("Join parameters:", {
@@ -295,36 +333,58 @@ export default function PatientVideoCall() {
 
         // Try joining with different parameter combinations to handle token issues
         let joinSuccess = false;
-        let lastError: any = null;
+        let lastError: unknown = null;
 
         // First try: with token from URL
         try {
           console.log("Trying to join with token from URL...");
-          await clientRef.current.join(
-            appId,
-            channelName,
-            token || null,
-            uidNumber
-          );
+          if (
+            clientRef.current &&
+            isMountedRef.current &&
+            !cancelTokenRef.current.cancelled
+          ) {
+            await clientRef.current.join(
+              appId,
+              channelName,
+              token || null,
+              uidNumber
+            );
+          }
           joinSuccess = true;
           console.log("Successfully joined channel with token from URL");
-        } catch (tokenError: any) {
+        } catch (tokenError) {
+          // Ignore cancellation errors
+          if (
+            tokenError instanceof Error &&
+            tokenError.name === "AgoraRTCError" &&
+            tokenError.message.includes("OPERATION_ABORTED")
+          ) {
+            return;
+          }
+
           console.error("Token join failed:", tokenError);
           console.error("Token error details:", {
-            name: tokenError.name,
-            message: tokenError.message,
-            code: tokenError.code,
+            name: tokenError instanceof Error ? tokenError.name : "Unknown",
+            message:
+              tokenError instanceof Error
+                ? tokenError.message
+                : "Unknown error",
+            code: (tokenError as { code?: string }).code || "Unknown",
           });
           lastError = tokenError;
 
           // If it's a token error, try with empty string
+          const errorMessage =
+            tokenError instanceof Error
+              ? tokenError.message
+              : String(tokenError);
           if (
-            tokenError.message &&
-            (tokenError.message.includes("invalid vendor key") ||
-              tokenError.message.includes("Invalid token") ||
-              tokenError.message.includes("token") ||
-              tokenError.message.includes("Token") ||
-              tokenError.message.includes("CAN_NOT_GET_GATEWAY_SERVER"))
+            errorMessage &&
+            (errorMessage.includes("invalid vendor key") ||
+              errorMessage.includes("Invalid token") ||
+              errorMessage.includes("token") ||
+              errorMessage.includes("Token") ||
+              errorMessage.includes("CAN_NOT_GET_GATEWAY_SERVER"))
           ) {
             try {
               console.log(
@@ -334,15 +394,36 @@ export default function PatientVideoCall() {
               await new Promise((resolve) => setTimeout(resolve, 1000));
 
               console.log("Trying to join with empty string token...");
-              await clientRef.current.join(appId, channelName, "", uidNumber);
+              if (
+                clientRef.current &&
+                isMountedRef.current &&
+                !cancelTokenRef.current.cancelled
+              ) {
+                await clientRef.current.join(appId, channelName, "", uidNumber);
+              }
               joinSuccess = true;
               console.log("Successfully joined channel with empty token");
-            } catch (emptyTokenError: any) {
+            } catch (emptyTokenError) {
+              // Ignore cancellation errors
+              if (
+                emptyTokenError instanceof Error &&
+                emptyTokenError.name === "AgoraRTCError" &&
+                emptyTokenError.message.includes("OPERATION_ABORTED")
+              ) {
+                return;
+              }
+
               console.error("Empty token join failed:", emptyTokenError);
               console.error("Empty token error details:", {
-                name: emptyTokenError.name,
-                message: emptyTokenError.message,
-                code: emptyTokenError.code,
+                name:
+                  emptyTokenError instanceof Error
+                    ? emptyTokenError.name
+                    : "Unknown",
+                message:
+                  emptyTokenError instanceof Error
+                    ? emptyTokenError.message
+                    : "Unknown error",
+                code: (emptyTokenError as { code?: string }).code || "Unknown",
               });
               lastError = emptyTokenError;
 
@@ -355,20 +436,41 @@ export default function PatientVideoCall() {
                 await new Promise((resolve) => setTimeout(resolve, 1000));
 
                 console.log("Trying to join with null token...");
-                await clientRef.current.join(
-                  appId,
-                  channelName,
-                  null,
-                  uidNumber
-                );
+                if (
+                  clientRef.current &&
+                  isMountedRef.current &&
+                  !cancelTokenRef.current.cancelled
+                ) {
+                  await clientRef.current.join(
+                    appId,
+                    channelName,
+                    null,
+                    uidNumber
+                  );
+                }
                 joinSuccess = true;
                 console.log("Successfully joined channel with null token");
-              } catch (nullTokenError: any) {
+              } catch (nullTokenError) {
+                // Ignore cancellation errors
+                if (
+                  nullTokenError instanceof Error &&
+                  nullTokenError.name === "AgoraRTCError" &&
+                  nullTokenError.message.includes("OPERATION_ABORTED")
+                ) {
+                  return;
+                }
+
                 console.error("Null token join failed:", nullTokenError);
                 console.error("Null token error details:", {
-                  name: nullTokenError.name,
-                  message: nullTokenError.message,
-                  code: nullTokenError.code,
+                  name:
+                    nullTokenError instanceof Error
+                      ? nullTokenError.name
+                      : "Unknown",
+                  message:
+                    nullTokenError instanceof Error
+                      ? nullTokenError.message
+                      : "Unknown error",
+                  code: (nullTokenError as { code?: string }).code || "Unknown",
                 });
                 lastError = nullTokenError;
               }
@@ -377,27 +479,39 @@ export default function PatientVideoCall() {
         }
 
         // If all attempts failed, throw the last error
-        if (!joinSuccess) {
+        if (!joinSuccess && !cancelTokenRef.current.cancelled) {
           throw lastError;
         }
 
         console.log("Successfully joined channel");
-      } catch (joinError: any) {
+      } catch (joinError) {
+        // Ignore cancellation errors
+        if (
+          joinError instanceof Error &&
+          joinError.name === "AgoraRTCError" &&
+          joinError.message.includes("OPERATION_ABORTED")
+        ) {
+          return;
+        }
+
         console.error("Failed to join channel:", joinError);
         console.error("Join error details:", {
-          name: joinError.name,
-          message: joinError.message,
-          code: joinError.code,
+          name: joinError instanceof Error ? joinError.name : "Unknown",
+          message:
+            joinError instanceof Error ? joinError.message : "Unknown error",
+          code: (joinError as { code?: string }).code || "Unknown",
           appId,
           channelName,
           uid,
         });
 
         // Provide more specific error messages
+        const errorMessage =
+          joinError instanceof Error ? joinError.message : String(joinError);
         if (
-          joinError.message &&
-          (joinError.message.includes("invalid vendor key") ||
-            joinError.message.includes("CAN_NOT_GET_GATEWAY_SERVER"))
+          errorMessage &&
+          (errorMessage.includes("invalid vendor key") ||
+            errorMessage.includes("CAN_NOT_GET_GATEWAY_SERVER"))
         ) {
           // Try alternative approach for vendor key issues
           throw new Error(
@@ -406,16 +520,15 @@ export default function PatientVideoCall() {
               "Trying alternative connection method..."
           );
         } else if (
-          joinError.message &&
-          (joinError.message.includes("token") ||
-            joinError.message.includes("Token"))
+          errorMessage &&
+          (errorMessage.includes("token") || errorMessage.includes("Token"))
         ) {
           throw new Error(
             "Invalid token. The token provided is not valid for this App ID or channel. " +
               "This could be due to an expired token, incorrect App ID, or server issues. " +
               "Please return to your dashboard and try joining the call again to get a new token."
           );
-        } else if (joinError.message && joinError.message.includes("join")) {
+        } else if (errorMessage && errorMessage.includes("join")) {
           throw new Error(
             "Failed to join the video call. " +
               "This could be due to network issues, an invalid App ID, or server problems. " +
@@ -427,15 +540,30 @@ export default function PatientVideoCall() {
       }
 
       // Create local audio and video tracks
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current || cancelTokenRef.current.cancelled) return;
 
       try {
-        [localAudioTrackRef.current, localVideoTrackRef.current] =
-          await Promise.all([
+        if (AgoraRTC) {
+          const [audioTrack, videoTrack] = await Promise.all([
             AgoraRTC.createMicrophoneAudioTrack(),
             AgoraRTC.createCameraVideoTrack(),
           ]);
-      } catch (trackError: any) {
+
+          if (!cancelTokenRef.current.cancelled) {
+            localAudioTrackRef.current = audioTrack as AgoraTrack;
+            localVideoTrackRef.current = videoTrack as AgoraTrack;
+          }
+        }
+      } catch (trackError) {
+        // Ignore cancellation errors
+        if (
+          trackError instanceof Error &&
+          trackError.name === "AgoraRTCError" &&
+          trackError.message.includes("OPERATION_ABORTED")
+        ) {
+          return;
+        }
+
         console.error("Failed to create local tracks:", trackError);
         throw new Error(
           "Failed to access camera or microphone. " +
@@ -446,24 +574,39 @@ export default function PatientVideoCall() {
       // Play local video
       if (
         localVideoTrackRef.current &&
+        localVideoTrackRef.current.play &&
         localVideoRef.current &&
-        isMountedRef.current
+        isMountedRef.current &&
+        !cancelTokenRef.current.cancelled
       ) {
         localVideoTrackRef.current.play(localVideoRef.current);
       }
 
       // Publish local tracks
-      if (isMountedRef.current) {
+      if (
+        isMountedRef.current &&
+        clientRef.current &&
+        !cancelTokenRef.current.cancelled
+      ) {
         await clientRef.current.publish([
           localAudioTrackRef.current,
           localVideoTrackRef.current,
         ]);
       }
 
-      if (isMountedRef.current) {
+      if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
         setIsConnected(true);
       }
-    } catch (error: any) {
+    } catch (error) {
+      // Ignore cancellation errors
+      if (
+        error instanceof Error &&
+        error.name === "AgoraRTCError" &&
+        error.message.includes("OPERATION_ABORTED")
+      ) {
+        return;
+      }
+
       console.error("Error initializing Agora:", error);
       console.error("App ID:", appId);
       console.error("App ID length:", appId?.length);
@@ -471,8 +614,9 @@ export default function PatientVideoCall() {
       console.error("UID:", uid);
 
       // Show user-friendly error message
-      if (isMountedRef.current) {
-        const errorMessage = error.message || "Unknown error";
+      if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         console.error("Full error:", error);
 
         // If it's the specific vendor key error, provide more guidance
@@ -502,16 +646,94 @@ export default function PatientVideoCall() {
         }
       }
     } finally {
-      if (isMountedRef.current) {
+      if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
         setInitializing(false);
       }
     }
   };
 
+  useEffect(() => {
+    // Validate required parameters
+    if (!channelName || !uid || !appId) {
+      console.error("Missing required parameters:", {
+        channelName,
+        uid,
+        appId,
+      });
+      if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
+        setError(
+          "Missing required video call parameters. Redirecting to dashboard..."
+        );
+        setTimeout(() => {
+          if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
+            router.push("/patient/dashboard");
+          }
+        }, 3000);
+      }
+      return;
+    }
+
+    // Log all parameters for debugging
+    console.log("Video call parameters received:", {
+      channelName,
+      token: token ? `${token.substring(0, 20)}...` : "null",
+      uid,
+      appId: appId ? `${appId.substring(0, 8)}...` : "null",
+      appIdLength: appId.length,
+    });
+
+    // Validate App ID format
+    if (appId.length !== 32) {
+      console.error("Invalid App ID length:", appId.length);
+      if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
+        setError(
+          `Invalid App ID format. Expected 32 characters, got ${appId.length}. For debugging, visit: /agora-debug`
+        );
+        return;
+      }
+    }
+
+    // Check if App ID contains only valid characters
+    const hexRegex = /^[0-9a-fA-F]+$/;
+    if (!hexRegex.test(appId)) {
+      console.error("Invalid App ID characters");
+      if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
+        setError(
+          "Invalid App ID format. App ID should only contain hexadecimal characters. For debugging, visit: /agora-debug"
+        );
+        return;
+      }
+    }
+
+    if (
+      AgoraRTC &&
+      !initializing &&
+      isMountedRef.current &&
+      !cancelTokenRef.current.cancelled
+    ) {
+      initializeAgora();
+    }
+
+    return () => {
+      cancelTokenRef.current.cancelled = true;
+      cleanup();
+    };
+  }, [
+    AgoraRTC,
+    channelName,
+    token,
+    uid,
+    appId,
+    initializeAgora,
+    initializing,
+    router,
+    cleanup,
+  ]);
+
   const leaveChannel = async () => {
     try {
       await cleanup();
-      if (isMountedRef.current) {
+      if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
         router.push("/patient/dashboard");
       }
     } catch (error) {
@@ -555,8 +777,8 @@ export default function PatientVideoCall() {
             <div className="mb-6 p-4 bg-yellow-900 rounded-lg">
               <h2 className="font-bold mb-2">Recommended Solution:</h2>
               <p className="mb-3">
-                Your App ID format is correct, but Agora's servers aren't
-                recognizing it. This typically happens when:
+                Your App ID format is correct, but Agora&apos;s servers
+                aren&apos;t recognizing it. This typically happens when:
               </p>
               <ul className="text-left list-disc pl-5 mb-3 space-y-1">
                 <li>The Agora project is not properly configured</li>
@@ -564,7 +786,7 @@ export default function PatientVideoCall() {
                 <li>The App ID belongs to a different Agora account</li>
                 <li>The App ID has been revoked or is invalid</li>
                 <li>
-                  You're using a static key with a dynamic token
+                  You&apos;re using a static key with a dynamic token
                   (CAN_NOT_GET_GATEWAY_SERVER)
                 </li>
               </ul>
@@ -594,7 +816,9 @@ export default function PatientVideoCall() {
                 <li>The token has expired (tokens are valid for 1 hour)</li>
                 <li>There was a network issue during token generation</li>
                 <li>The App ID or channel name has changed</li>
-                <li>There's a temporary issue with Agora's servers</li>
+                <li>
+                  There&apos;s a temporary issue with Agora&apos;s servers
+                </li>
               </ul>
               <p>
                 <strong>Solution:</strong> Return to your dashboard and try
@@ -744,5 +968,26 @@ export default function PatientVideoCall() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Create a loading component for the Suspense fallback
+function VideoCallLoading() {
+  return (
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="text-center text-white">
+        <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p>Loading video call...</p>
+      </div>
+    </div>
+  );
+}
+
+// Main component wrapped with Suspense
+export default function PatientVideoCall() {
+  return (
+    <Suspense fallback={<VideoCallLoading />}>
+      <PatientVideoCallContent />
+    </Suspense>
   );
 }

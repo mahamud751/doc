@@ -1,19 +1,18 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { Button } from "@/components/ui/Button";
 import {
-  Video,
-  VideoOff,
+  MessageCircle,
   Mic,
   MicOff,
-  Phone,
-  PhoneOff,
   Monitor,
+  PhoneOff,
   Settings,
   Users,
-  MessageCircle,
+  Video,
+  VideoOff,
 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // Type definitions for Agora RTC SDK
 interface IAgoraRTCClient {
@@ -24,36 +23,42 @@ interface IAgoraRTCClient {
     uid: number
   ) => Promise<void>;
   leave: () => Promise<void>;
-  publish: (tracks: any[]) => Promise<void>;
-  subscribe: (user: any, mediaType: string) => Promise<void>;
-  on: (event: string, callback: Function) => void;
-  off: (event: string, callback: Function) => void;
+  publish: (
+    tracks: (ICameraVideoTrack | IMicrophoneAudioTrack)[]
+  ) => Promise<void>;
+  subscribe: (user: IAgoraRTCRemoteUser, mediaType: string) => Promise<void>;
+  on: (event: string, callback: (...args: unknown[]) => void) => void;
+  off: (event: string, callback: (...args: unknown[]) => void) => void;
 }
 
 interface ICameraVideoTrack {
   play: (element: HTMLElement) => void;
   close: () => void;
   setEnabled: (enabled: boolean) => Promise<void>;
+  stop?: () => void; // Add optional stop method
 }
 
 interface IMicrophoneAudioTrack {
   play: () => void;
   close: () => void;
   setEnabled: (enabled: boolean) => Promise<void>;
+  stop?: () => void; // Add optional stop method
 }
 
-interface IRemoteVideoTrack {
-  play: (element: HTMLElement) => void;
-  stop: () => void;
+interface IAgoraRTCRemoteUser {
+  uid: number;
+  videoTrack?: ICameraVideoTrack;
+  audioTrack?: IMicrophoneAudioTrack;
 }
 
-interface IRemoteAudioTrack {
-  play: () => void;
-  stop: () => void;
+interface IAgoraRTC {
+  createClient: (config: unknown) => IAgoraRTCClient;
+  createCameraVideoTrack: () => Promise<ICameraVideoTrack>;
+  createMicrophoneAudioTrack: () => Promise<IMicrophoneAudioTrack>;
 }
 
 // Dynamically import AgoraRTC
-let AgoraRTC: any;
+let AgoraRTC: IAgoraRTC | null = null;
 
 interface VideoCallProps {
   channelName: string;
@@ -96,7 +101,7 @@ export default function AgoraVideoCall({
   const [connectionStatus, setConnectionStatus] = useState<
     "connecting" | "connected" | "failed" | "disconnected"
   >("connecting");
-  const [remoteUsers, setRemoteUsers] = useState<any[]>([]);
+  const [remoteUsers, setRemoteUsers] = useState<IAgoraRTCRemoteUser[]>([]);
   const [localVideoReady, setLocalVideoReady] = useState(false);
   const [agoraInitialized, setAgoraInitialized] = useState(false);
 
@@ -107,48 +112,6 @@ export default function AgoraVideoCall({
 
   // Generate unique UID based on user ID
   const uid = parseInt(userId) || Math.floor(Math.random() * 10000);
-
-  // Initialize Agora SDK
-  useEffect(() => {
-    const initAgora = async () => {
-      if (typeof window !== "undefined") {
-        // Dynamically import AgoraRTC only on client side
-        const AgoraRTCModule = await import("agora-rtc-sdk-ng");
-        AgoraRTC = AgoraRTCModule.default;
-        setAgoraInitialized(true);
-      }
-    };
-
-    initAgora();
-  }, []);
-
-  useEffect(() => {
-    if (agoraInitialized) {
-      initializeAgoraClient();
-    }
-
-    return () => {
-      if (agoraInitialized) {
-        cleanupAgoraResources();
-      }
-    };
-  }, [channelName, agoraInitialized]);
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isCallActive) {
-      callStartTime.current = Date.now();
-      interval = setInterval(() => {
-        setCallDuration(
-          Math.floor((Date.now() - callStartTime.current) / 1000)
-        );
-      }, 1000);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isCallActive]);
 
   const generateAgoraToken = async (): Promise<AgoraTokenResponse> => {
     try {
@@ -176,7 +139,7 @@ export default function AgoraVideoCall({
     }
   };
 
-  const initializeAgoraClient = async () => {
+  const initializeAgoraClient = useCallback(async () => {
     if (!AgoraRTC) return;
 
     try {
@@ -250,7 +213,49 @@ export default function AgoraVideoCall({
       console.error("Failed to initialize Agora client:", error);
       setConnectionStatus("failed");
     }
-  };
+  }, [channelName, uid, generateAgoraToken]);
+
+  // Initialize Agora SDK
+  useEffect(() => {
+    const initAgora = async () => {
+      if (typeof window !== "undefined") {
+        // Dynamically import AgoraRTC only on client side
+        const AgoraRTCModule = await import("agora-rtc-sdk-ng");
+        AgoraRTC = AgoraRTCModule.default as unknown as IAgoraRTC | null;
+        setAgoraInitialized(true);
+      }
+    };
+
+    initAgora();
+  }, []);
+
+  useEffect(() => {
+    if (agoraInitialized) {
+      initializeAgoraClient();
+    }
+
+    return () => {
+      if (agoraInitialized) {
+        cleanupAgoraResources();
+      }
+    };
+  }, [channelName, agoraInitialized, initializeAgoraClient]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isCallActive) {
+      callStartTime.current = Date.now();
+      interval = setInterval(() => {
+        setCallDuration(
+          Math.floor((Date.now() - callStartTime.current) / 1000)
+        );
+      }, 1000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isCallActive]);
 
   const createLocalTracks = async () => {
     if (!AgoraRTC) return;
@@ -287,10 +292,13 @@ export default function AgoraVideoCall({
     }
   };
 
-  const handleUserPublished = async (
-    user: any,
-    mediaType: "audio" | "video"
-  ) => {
+  const handleUserPublished = async (...args: unknown[]) => {
+    // Type guard to ensure we have the right parameters
+    if (args.length < 2) return;
+
+    const user = args[0] as IAgoraRTCRemoteUser;
+    const mediaType = args[1] as "audio" | "video";
+
     if (!agoraClient.current) return;
 
     await agoraClient.current.subscribe(user, mediaType);
@@ -312,22 +320,42 @@ export default function AgoraVideoCall({
     });
   };
 
-  const handleUserUnpublished = (user: any, mediaType: "audio" | "video") => {
+  const handleUserUnpublished = (...args: unknown[]) => {
+    // Type guard to ensure we have the right parameters
+    if (args.length < 2) return;
+
+    const user = args[0] as IAgoraRTCRemoteUser;
+    const mediaType = args[1] as "audio" | "video";
+
     if (mediaType === "video") {
-      user.videoTrack?.stop();
+      user.videoTrack?.stop?.();
     }
   };
 
-  const handleUserJoined = (user: any) => {
+  const handleUserJoined = (...args: unknown[]) => {
+    // Type guard to ensure we have the right parameters
+    if (args.length < 1) return;
+
+    const user = args[0] as IAgoraRTCRemoteUser;
     console.log("User joined:", user.uid);
   };
 
-  const handleUserLeft = (user: any) => {
+  const handleUserLeft = (...args: unknown[]) => {
+    // Type guard to ensure we have the right parameters
+    if (args.length < 1) return;
+
+    const user = args[0] as IAgoraRTCRemoteUser;
     console.log("User left:", user.uid);
     setRemoteUsers((prev) => prev.filter((u) => u.uid !== user.uid));
   };
 
-  const handleConnectionStateChanged = (curState: string, revState: string) => {
+  const handleConnectionStateChanged = (...args: unknown[]) => {
+    // Type guard to ensure we have the right parameters
+    if (args.length < 2) return;
+
+    const curState = args[0] as string;
+    const revState = args[1] as string;
+
     console.log("Connection state changed:", curState, revState);
     if (curState === "CONNECTED") {
       setConnectionStatus("connected");

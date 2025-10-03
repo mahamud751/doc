@@ -1,28 +1,21 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/Card";
-import {
-  Calendar,
-  Clock,
-  Video,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  User,
-  Phone,
-  Stethoscope,
-  Edit,
-} from "lucide-react";
-import { motion } from "framer-motion";
+import { Card, CardContent } from "@/components/ui/Card";
 import { formatDate } from "@/lib/utils";
+import { motion } from "framer-motion";
+import {
+  AlertCircle,
+  Calendar,
+  CheckCircle,
+  Clock,
+  Edit,
+  Stethoscope,
+  User,
+  Video,
+  XCircle,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface Appointment {
   id: string;
@@ -47,6 +40,16 @@ interface Appointment {
 
 interface AppointmentManagementProps {
   patientId: string;
+}
+
+interface FetchError extends Error {
+  message: string;
+}
+
+interface AgoraTokenResponse {
+  token: string;
+  appId: string;
+  // Add other properties as needed
 }
 
 export default function AppointmentManagement({
@@ -100,9 +103,10 @@ export default function AppointmentManagement({
 
       const data = await response.json();
       setAppointments(data.appointments || []);
-    } catch (err: any) {
-      console.error("Error fetching appointments:", err);
-      setError(err.message || "Failed to load appointments");
+    } catch (err) {
+      const fetchError = err as FetchError;
+      console.error("Error fetching appointments:", fetchError);
+      setError(fetchError.message || "Failed to load appointments");
     } finally {
       setLoading(false);
     }
@@ -131,9 +135,10 @@ export default function AppointmentManagement({
 
       // Refresh appointments
       fetchAppointments();
-    } catch (err: any) {
-      console.error("Error cancelling appointment:", err);
-      setError(err.message || "Failed to cancel appointment");
+    } catch (err) {
+      const fetchError = err as FetchError;
+      console.error("Error cancelling appointment:", fetchError);
+      setError(fetchError.message || "Failed to cancel appointment");
     }
   };
 
@@ -163,10 +168,11 @@ export default function AppointmentManagement({
       }
 
       const data = await response.json();
-      return data;
-    } catch (err: any) {
-      console.error("Error generating Agora token:", err);
-      setError(err.message || "Failed to generate video call token");
+      return data as AgoraTokenResponse;
+    } catch (err) {
+      const fetchError = err as FetchError;
+      console.error("Error generating Agora token:", fetchError);
+      setError(fetchError.message || "Failed to generate video call token");
       return null;
     }
   };
@@ -191,9 +197,10 @@ export default function AppointmentManagement({
         const callUrl = `/patient/video-call?channel=${channelName}&token=${tokenData.token}&uid=${uid}&appId=${tokenData.appId}`;
         window.open(callUrl, "_blank");
       }
-    } catch (err: any) {
-      console.error("Error joining video call:", err);
-      setError(err.message || "Failed to join video call");
+    } catch (err) {
+      const fetchError = err as FetchError;
+      console.error("Error joining video call:", fetchError);
+      setError(fetchError.message || "Failed to join video call");
     }
   };
 

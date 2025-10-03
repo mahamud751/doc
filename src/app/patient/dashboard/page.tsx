@@ -1,53 +1,35 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
+import NavigationHeader from "@/components/NavigationHeader";
 import { Button } from "@/components/ui/Button";
-import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { socketClient } from "@/lib/socket-client";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import { AnimatePresence, motion } from "framer-motion";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/Card";
-import {
+  Activity,
+  ArrowRight,
+  Bell,
   Calendar,
   Clock,
-  Video,
-  FileText,
-  Pill,
-  TestTube,
-  User,
-  Settings,
-  Bell,
-  LogOut,
-  Star,
-  MapPin,
-  Phone,
-  Mail,
-  Stethoscope,
-  Plus,
   Download,
   Eye,
-  Sparkles,
-  Zap,
+  FileText,
   Heart,
-  Activity,
-  TrendingUp,
-  Shield,
-  CheckCircle,
-  ArrowRight,
-  Brain,
-  Bone,
-  Baby,
   Loader2,
+  Pill,
+  Plus,
+  Shield,
+  TestTube,
+  TrendingUp,
+  User,
+  Video,
   X,
+  Zap,
 } from "lucide-react";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import { motion, AnimatePresence } from "framer-motion";
-import NavigationHeader from "@/components/NavigationHeader";
-import { socketClient } from "@/lib/socket-client";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
 interface PatientData {
   id: string;
@@ -147,23 +129,45 @@ export default function PatientDashboard() {
   const [recentPrescriptions, setRecentPrescriptions] = useState<
     Prescription[]
   >([]);
-  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [, setRecentOrders] = useState<Order[]>([]);
   // For orders tab - separate pharmacy and lab orders
   const [activeOrdersTab, setActiveOrdersTab] = useState<"pharmacy" | "lab">(
     "pharmacy"
   );
   const [pharmacyOrders, setPharmacyOrders] = useState<Order[]>([]);
   const [labOrders, setLabOrders] = useState<Order[]>([]);
-  const [medicalHistory, setMedicalHistory] = useState<any[]>([]);
-  const [allergies, setAllergies] = useState<string[]>([]);
+  const [, setMedicalHistory] = useState<string[]>([]);
+  const [, setAllergies] = useState<string[]>([]);
+
+  const [, setNotifications] = useState<Record<string, unknown>[]>([]);
   const [unreadMessages, setUnreadMessages] = useState(0);
-  const [realTimeAppointments, setRealTimeAppointments] = useState<
-    Appointment[]
-  >([]);
-  const [notifications, setNotifications] = useState<any[]>([]);
   // For order details modal
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+
+  const handleAppointmentUpdate = useCallback(() => {
+    // Update appointment list in real-time
+    fetchDashboardData();
+  }, []);
+
+  const handleNewMessage = useCallback(() => {
+    setUnreadMessages((prev) => prev + 1);
+  }, []);
+
+  const handleOrderUpdate = useCallback(() => {
+    // Handle order status updates
+    fetchRecentOrders();
+  }, []);
+
+  const handleNotification = useCallback(
+    (notification: Record<string, unknown>) => {
+      setNotifications((prev: Record<string, unknown>[]) => [
+        notification,
+        ...prev,
+      ]);
+    },
+    []
+  );
 
   useEffect(() => {
     fetchDashboardData();
@@ -202,25 +206,12 @@ export default function PatientDashboard() {
         // Continue with the app even if socket fails
       }
     }
-  }, []);
-
-  const handleAppointmentUpdate = useCallback((update: any) => {
-    // Update appointment list in real-time
-    fetchDashboardData();
-  }, []);
-
-  const handleNewMessage = useCallback((message: any) => {
-    setUnreadMessages((prev) => prev + 1);
-  }, []);
-
-  const handleOrderUpdate = useCallback((update: any) => {
-    // Handle order status updates
-    fetchRecentOrders();
-  }, []);
-
-  const handleNotification = useCallback((notification: any) => {
-    setNotifications((prev) => [notification, ...prev]);
-  }, []);
+  }, [
+    handleAppointmentUpdate,
+    handleNewMessage,
+    handleOrderUpdate,
+    handleNotification,
+  ]);
 
   const fetchDashboardData = async () => {
     try {
@@ -260,9 +251,11 @@ export default function PatientDashboard() {
         );
         setAllergies(data.patient.profile.allergies || []);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error fetching dashboard data:", error);
-      setError(error.message || "Failed to load dashboard data");
+      setError(
+        error instanceof Error ? error.message : "Failed to load dashboard data"
+      );
     } finally {
       setLoading(false);
     }
@@ -298,7 +291,7 @@ export default function PatientDashboard() {
       setLabOrders(labOrders);
       // Keep the recent orders for backward compatibility
       setRecentOrders(data.orders.slice(0, 5));
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error fetching orders:", error);
     }
   };
@@ -377,9 +370,13 @@ export default function PatientDashboard() {
       // Clean up
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error downloading report:", error);
-      alert(`Failed to download report: ${error.message || "Unknown error"}`);
+      alert(
+        `Failed to download report: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     }
   };
 
@@ -432,11 +429,12 @@ export default function PatientDashboard() {
       // Redirect to video call page with token data
       const callUrl = `/patient/video-call?channel=${channelName}&token=${tokenData.token}&uid=${uid}&appId=${tokenData.appId}`;
       window.open(callUrl, "_blank");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error joining video call:", error);
 
       // Provide more specific error messages
-      let errorMessage = error.message || "Unknown error";
+      let errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
 
       if (errorMessage.includes("vendor key")) {
         errorMessage =
@@ -1052,7 +1050,7 @@ export default function PatientDashboard() {
                         </CardHeader>
                         <CardContent className="p-6">
                           <div className="space-y-4">
-                            {healthMetrics.map((metric, index) => (
+                            {healthMetrics.map((metric) => (
                               <div
                                 key={metric.title}
                                 className="flex items-center justify-between"
@@ -1217,9 +1215,9 @@ export default function PatientDashboard() {
                                       Items:
                                     </h4>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                      {order.items.map((item, itemIndex) => (
+                                      {order.items.map((item, index) => (
                                         <div
-                                          key={itemIndex}
+                                          key={index}
                                           className="flex items-center justify-between p-3 bg-gray-50 rounded-xl"
                                         >
                                           <span className="font-medium text-gray-900">
@@ -1282,8 +1280,8 @@ export default function PatientDashboard() {
                               No Pharmacy Orders Yet
                             </h3>
                             <p className="text-gray-600 mb-6">
-                              You haven't placed any pharmacy orders yet. Start
-                              by ordering medicines.
+                              You haven&apos;t placed any pharmacy orders yet.
+                              Start by ordering medicines.
                             </p>
                             <motion.div
                               whileHover={{ scale: 1.05 }}
@@ -1361,9 +1359,9 @@ export default function PatientDashboard() {
                                     :
                                   </h4>
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    {order.items.map((item, itemIndex) => (
+                                    {order.items.map((item, index) => (
                                       <div
-                                        key={itemIndex}
+                                        key={index}
                                         className="flex items-center justify-between p-3 bg-gray-50 rounded-xl"
                                       >
                                         <span className="font-medium text-gray-900">
@@ -1421,8 +1419,8 @@ export default function PatientDashboard() {
                             No Lab Test Orders Yet
                           </h3>
                           <p className="text-gray-600 mb-6">
-                            You haven't placed any lab test orders yet. Start by
-                            booking lab tests.
+                            You haven&apos;t placed any lab test orders yet.
+                            Start by booking lab tests.
                           </p>
                           <motion.div
                             whileHover={{ scale: 1.05 }}

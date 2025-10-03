@@ -1,9 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
 import { verifyAuthToken } from "@/lib/auth-utils";
 import { emailService } from "@/lib/email-service";
+import { prisma } from "@/lib/prisma";
+import { AppointmentStatus, Prisma, User } from "@prisma/client";
+import { NextRequest, NextResponse } from "next/server";
 
-const prisma = new PrismaClient();
+interface AuthResult {
+  success: boolean;
+  user?: User;
+  error?: string;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     const offset = (page - 1) * limit;
 
-    const where: any = {};
+    const where: Prisma.AppointmentWhereInput = {};
 
     // If user is a doctor, they can only see their own appointments
     if (authResult.user.role === "DOCTOR") {
@@ -43,11 +48,12 @@ export async function GET(request: NextRequest) {
         } else if (typeof statusArray === "object" && statusArray.in) {
           where.status = statusArray;
         } else {
-          where.status = status;
+          // Type assertion to ensure status is a valid AppointmentStatus
+          where.status = status as AppointmentStatus;
         }
       } catch (e) {
         // If parsing fails, treat as single status
-        where.status = status;
+        where.status = status as AppointmentStatus;
       }
     }
 
@@ -100,7 +106,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await verifyAuthToken(request);
+    const authResult = (await verifyAuthToken(request)) as AuthResult;
     if (!authResult.success || !authResult.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -224,36 +230,41 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Mark the slot as booked
+    // Mark slot as booked
     await prisma.availabilitySlot.update({
       where: { id: availableSlot.id },
       data: { is_booked: true },
     });
 
-    // Send confirmation email to patient
+    // Send email notifications
     try {
+      // Notification for doctor
+      await emailService.sendAppointmentNotification(
+        doctor.email,
+        doctor.name,
+        patient.name,
+        requestedDateTime.toISOString().split("T")[0],
+        requestedDateTime.toTimeString().split(" ")[0].substring(0, 5),
+        "confirmed"
+      );
+
+      // Notification for patient
       await emailService.sendAppointmentNotification(
         patient.email,
         patient.name,
         doctor.name,
-        appointmentDate,
-        appointmentTime,
+        requestedDateTime.toISOString().split("T")[0],
+        requestedDateTime.toTimeString().split(" ")[0].substring(0, 5),
         "confirmed"
       );
     } catch (emailError) {
       console.error(
-        "Failed to send appointment confirmation email:",
+        "Failed to send appointment notification emails:",
         emailError
       );
     }
 
-    return NextResponse.json(
-      {
-        appointment,
-        message: "Appointment scheduled successfully",
-      },
-      { status: 201 }
-    );
+    return NextResponse.json({ appointment }, { status: 201 });
   } catch (error) {
     console.error("Create appointment error:", error);
     return NextResponse.json(
@@ -313,7 +324,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const updateData: any = {};
+    const updateData: Prisma.AppointmentUpdateInput = {};
     if (status) updateData.status = status;
     if (reason !== undefined) updateData.symptoms = reason;
     if (notes !== undefined) updateData.notes = notes;

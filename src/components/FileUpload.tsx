@@ -104,6 +104,7 @@ export default function FileUpload({
         })
       );
     } catch (error) {
+      console.error("Upload error:", error);
       setUploadedFiles((prev) =>
         prev.map((uploadedFile) => {
           if (files.includes(uploadedFile.file)) {
@@ -147,9 +148,9 @@ export default function FileUpload({
     const extension = fileName.split(".").pop()?.toLowerCase();
 
     if (["jpg", "jpeg", "png", "gif", "webp"].includes(extension || "")) {
-      return <Image className="w-4 h-4" />;
+      return <Image className="w-4 h-4" aria-hidden="true" />;
     }
-    return <FileText className="w-4 h-4" />;
+    return <FileText className="w-4 h-4" aria-hidden="true" />;
   };
 
   return (

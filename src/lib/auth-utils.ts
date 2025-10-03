@@ -1,8 +1,8 @@
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import { UserRole } from "@prisma/client";
+import bcrypt from "bcryptjs";
 import { NextRequest } from "next/server";
 import { prisma } from "./prisma";
+import { verifyJWT } from "./auth";
 
 export interface JWTPayload {
   userId: string;
@@ -27,29 +27,14 @@ export const verifyAuthToken = async (
   request: NextRequest
 ): Promise<AuthResult> => {
   try {
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return { success: false, error: "No valid authorization header" };
+    const token = request.headers.get("authorization")?.split(" ")[1];
+    if (!token) {
+      return { success: false, error: "No token provided" };
     }
 
-    const token = authHeader.substring(7);
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
-      return { success: false, error: "JWT secret not configured" };
-    }
-
-    const decoded = jwt.verify(token, secret) as JWTPayload;
-
-    // Fetch user from database to ensure they still exist and are active
+    const decoded = verifyJWT(token) as { userId: string };
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        is_active: true,
-      },
     });
 
     if (!user || !user.is_active) {
@@ -66,6 +51,7 @@ export const verifyAuthToken = async (
       },
     };
   } catch (error) {
+    console.error("Token verification error:", error);
     return { success: false, error: "Invalid token" };
   }
 };

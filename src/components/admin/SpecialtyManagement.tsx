@@ -1,29 +1,19 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import ExportButton, { prepareExportData } from "@/components/ExportButton";
 import {
-  Heart,
-  Plus,
-  Edit,
-  Trash2,
-  Search,
-  Eye,
-  Activity,
-  Archive,
-  Image,
-} from "lucide-react";
-import {
+  ResponsiveButton,
   ResponsiveCard,
   ResponsiveGrid,
   ResponsiveInput,
-  ResponsiveButton,
   ResponsiveModal,
 } from "@/components/ResponsiveComponents";
-import ExportButton, { prepareExportData } from "@/components/ExportButton";
 import { formatDate } from "@/lib/utils";
+import { motion } from "framer-motion";
+import { Activity, Archive, Edit, Heart, Plus, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
 
-interface Specialty {
+interface Specialty extends Record<string, unknown> {
   id: string;
   name: string;
   description?: string;
@@ -62,13 +52,31 @@ export default function SpecialtyManagement() {
     newSpecialtiesThisMonth: 0,
   });
 
+  const calculateStats = () => {
+    const totalSpecialties = specialties.length;
+    const activeSpecialties = specialties.filter(
+      (specialty) => specialty.is_active
+    ).length;
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    const newSpecialtiesThisMonth = specialties.filter((specialty) => {
+      const createdDate = new Date(specialty.created_at);
+      return (
+        createdDate.getMonth() === currentMonth &&
+        createdDate.getFullYear() === currentYear
+      );
+    }).length;
+
+    setStats({ totalSpecialties, activeSpecialties, newSpecialtiesThisMonth });
+  };
+
   useEffect(() => {
     fetchSpecialties();
   }, []);
 
   useEffect(() => {
     calculateStats();
-  }, [specialties]);
+  }, [specialties, calculateStats]);
 
   const fetchSpecialties = async () => {
     try {
@@ -87,29 +95,11 @@ export default function SpecialtyManagement() {
       } else {
         setError("Failed to fetch specialties");
       }
-    } catch (err) {
+    } catch (err: unknown) {
       setError("Error loading specialties");
     } finally {
       setLoading(false);
     }
-  };
-
-  const calculateStats = () => {
-    const totalSpecialties = specialties.length;
-    const activeSpecialties = specialties.filter(
-      (specialty) => specialty.is_active
-    ).length;
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-    const newSpecialtiesThisMonth = specialties.filter((specialty) => {
-      const createdDate = new Date(specialty.created_at);
-      return (
-        createdDate.getMonth() === currentMonth &&
-        createdDate.getFullYear() === currentYear
-      );
-    }).length;
-
-    setStats({ totalSpecialties, activeSpecialties, newSpecialtiesThisMonth });
   };
 
   const handleCreateSpecialty = async () => {
@@ -132,7 +122,7 @@ export default function SpecialtyManagement() {
         const data = await response.json();
         setError(data.error || "Failed to create specialty");
       }
-    } catch (err) {
+    } catch (err: unknown) {
       setError("Error creating specialty");
     }
   };
@@ -162,7 +152,7 @@ export default function SpecialtyManagement() {
       } else {
         setError("Failed to update specialty");
       }
-    } catch (err) {
+    } catch (err: unknown) {
       setError("Error updating specialty");
     }
   };
@@ -184,7 +174,7 @@ export default function SpecialtyManagement() {
       } else {
         setError("Failed to delete specialty");
       }
-    } catch (err) {
+    } catch (err: unknown) {
       setError("Error deleting specialty");
     }
   };
@@ -212,7 +202,7 @@ export default function SpecialtyManagement() {
       } else {
         setError("Failed to update specialty status");
       }
-    } catch (err) {
+    } catch (err: unknown) {
       setError("Error updating specialty status");
     }
   };
@@ -353,7 +343,7 @@ export default function SpecialtyManagement() {
                   {
                     key: "created_at",
                     label: "Created At",
-                    format: (value) => formatDate(value),
+                    format: (value) => formatDate(value as string),
                   },
                 ],
                 "specialties-export"
@@ -385,6 +375,7 @@ export default function SpecialtyManagement() {
                 <div className="flex items-center">
                   <div className="bg-gradient-to-r from-blue-500 to-purple-500 rounded-full w-12 h-12 flex items-center justify-center mr-3">
                     {specialty.icon_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={specialty.icon_url}
                         alt={specialty.name}

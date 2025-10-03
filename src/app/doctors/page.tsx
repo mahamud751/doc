@@ -1,34 +1,24 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import NavigationHeader from "@/components/NavigationHeader";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { Card, CardContent } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
+import { AnimatePresence, motion } from "framer-motion";
 import {
-  Search,
+  Award,
+  Clock,
   Filter,
   MapPin,
-  Star,
-  Video,
-  Calendar,
-  Users,
-  Stethoscope,
-  ArrowLeft,
-  User,
   Phone,
-  Sparkles,
-  Zap,
-  Heart,
-  Clock,
-  Award,
-  CheckCircle,
-  TrendingUp,
-  Eye,
+  Search,
+  Star,
+  Stethoscope,
+  Users,
+  Video,
 } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import NavigationHeader from "@/components/NavigationHeader";
+import { useEffect, useState, useCallback } from "react";
 
 // Mock data transformation helper
 const formatCurrency = (amount: number) => `৳${amount}`;
@@ -59,7 +49,7 @@ interface Doctor {
   bio: string;
   is_available_online: boolean;
   languages: string[];
-  clinic_locations: any[];
+  clinic_locations: unknown[];
 }
 
 const specialties = [
@@ -98,11 +88,7 @@ export default function DoctorsPage() {
     nextAvailable: "Today 2:00 PM",
   });
 
-  useEffect(() => {
-    fetchDoctors();
-  }, []);
-
-  const fetchDoctors = async () => {
+  const fetchDoctors = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -124,18 +110,24 @@ export default function DoctorsPage() {
 
       const data = await response.json();
       setDoctors(data.doctors || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error fetching doctors:", error);
-      setError(error.message || "Failed to load doctors");
+      setError(
+        error instanceof Error ? error.message : "Failed to load doctors"
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedSpecialty, searchTerm]);
+
+  useEffect(() => {
+    fetchDoctors();
+  }, [fetchDoctors]);
 
   // Update fetchDoctors to be called when filters change
   useEffect(() => {
     fetchDoctors();
-  }, [selectedSpecialty, searchTerm]);
+  }, [selectedSpecialty, searchTerm, fetchDoctors]);
 
   const filteredDoctors = doctors
     .filter((doctor) => {

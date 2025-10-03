@@ -1,24 +1,21 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
 import {
-  Calendar,
-  Clock,
-  Plus,
-  Trash2,
-  Edit,
-  Check,
-  X,
-  AlertCircle,
-  Repeat,
-} from "lucide-react";
-import {
-  ResponsiveCard,
   ResponsiveButton,
+  ResponsiveCard,
   ResponsiveModal,
 } from "@/components/ResponsiveComponents";
-import { formatDate } from "@/lib/utils";
+import { motion } from "framer-motion";
+import {
+  AlertCircle,
+  Check,
+  Clock,
+  Plus,
+  Repeat,
+  Trash2,
+  X,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface AvailabilitySlot {
   id: string;
@@ -28,21 +25,16 @@ interface AvailabilitySlot {
   is_booked: boolean;
   slot_duration: number;
   is_recurring?: boolean;
-  recurrence_pattern?: any;
+  recurrence_pattern?: {
+    type: string;
+    days: number[];
+  };
 }
 
 interface Doctor {
   id: string;
   name: string;
   email: string;
-}
-
-interface TimeSlot {
-  id?: string;
-  start_time: string;
-  end_time: string;
-  is_available: boolean;
-  is_booked: boolean;
 }
 
 // Define days of the week
@@ -74,8 +66,18 @@ export default function DoctorAvailabilityManagement() {
 
   // New states for weekly schedule
   const [showWeeklySchedule, setShowWeeklySchedule] = useState<boolean>(false);
-  const [weeklySchedule, setWeeklySchedule] = useState<any>({});
-  const [weeklySlots, setWeeklySlots] = useState<any[]>([]);
+  const [weeklySchedule, setWeeklySchedule] = useState<
+    Record<
+      number,
+      Array<{
+        id?: string;
+        start_time: string;
+        end_time: string;
+        slot_duration: number;
+      }>
+    >
+  >({});
+  const [weeklySlots, setWeeklySlots] = useState<AvailabilitySlot[]>([]);
 
   // Generate next 7 days
   const getNext7Days = () => {
@@ -119,6 +121,7 @@ export default function DoctorAvailabilityManagement() {
         setError("Failed to fetch doctors");
       }
     } catch (err) {
+      console.error("Error loading doctors:", err);
       setError("Error loading doctors");
     } finally {
       setLoading(false);
@@ -145,17 +148,25 @@ export default function DoctorAvailabilityManagement() {
 
         // Extract weekly recurring slots
         const recurringSlots = data.slots.filter(
-          (slot: any) => slot.is_recurring
+          (slot: AvailabilitySlot) => slot.is_recurring
         );
         setWeeklySlots(recurringSlots);
 
         // Initialize weekly schedule
-        const schedule: any = {};
+        const schedule: Record<
+          number,
+          Array<{
+            id?: string;
+            start_time: string;
+            end_time: string;
+            slot_duration: number;
+          }>
+        > = {};
         DAYS_OF_WEEK.forEach((day) => {
           schedule[day.id] = [];
         });
 
-        recurringSlots.forEach((slot: any) => {
+        recurringSlots.forEach((slot: AvailabilitySlot) => {
           const startDate = new Date(slot.start_time);
           const dayOfWeek = startDate.getDay();
           const startTime = startDate.toTimeString().substring(0, 5);
@@ -176,6 +187,7 @@ export default function DoctorAvailabilityManagement() {
         setError("Failed to fetch doctor availability");
       }
     } catch (err) {
+      console.error("Error loading doctor availability:", err);
       setError("Error loading doctor availability");
     } finally {
       setLoading(false);
@@ -225,6 +237,7 @@ export default function DoctorAvailabilityManagement() {
       }
     } catch (err) {
       console.error("Network Error:", err); // Log the network error
+      console.error("Network error: Failed to create availability slot:", err);
       setError("Network error: Failed to create availability slot");
     }
   };
@@ -254,6 +267,7 @@ export default function DoctorAvailabilityManagement() {
         setError(errorData.error || "Failed to update availability slot");
       }
     } catch (err) {
+      console.error("Error updating availability slot:", err);
       setError("Error updating availability slot");
     }
   };
@@ -281,6 +295,7 @@ export default function DoctorAvailabilityManagement() {
         setError(errorData.error || "Failed to delete availability slot");
       }
     } catch (err) {
+      console.error("Error deleting availability slot:", err);
       setError("Error deleting availability slot");
     }
   };
@@ -342,6 +357,10 @@ export default function DoctorAvailabilityManagement() {
       }
     } catch (err) {
       console.error("Network Error:", err); // Log the network error
+      console.error(
+        "Network error: Failed to create weekly availability slot:",
+        err
+      );
       setError("Network error: Failed to create weekly availability slot");
     }
   };
@@ -374,6 +393,7 @@ export default function DoctorAvailabilityManagement() {
         );
       }
     } catch (err) {
+      console.error("Error deleting weekly availability slot:", err);
       setError("Error deleting weekly availability slot");
     }
   };
@@ -418,11 +438,21 @@ export default function DoctorAvailabilityManagement() {
   const updateWeeklyTimeSlot = (
     dayId: number,
     index: number,
-    field: string,
+    field: keyof {
+      id?: string;
+      start_time: string;
+      end_time: string;
+      slot_duration: number;
+    },
     value: string
   ) => {
     const newSchedule = { ...weeklySchedule };
-    newSchedule[dayId][index][field] = value;
+    if (newSchedule[dayId] && newSchedule[dayId][index]) {
+      newSchedule[dayId][index] = {
+        ...newSchedule[dayId][index],
+        [field]: value,
+      };
+    }
     setWeeklySchedule(newSchedule);
   };
 
@@ -498,7 +528,7 @@ export default function DoctorAvailabilityManagement() {
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
-                    {selectedDoctor.name}'s Weekly Schedule
+                    {selectedDoctor.name}&apos;s Weekly Schedule
                   </h3>
                   <p className="text-sm text-gray-500">
                     Set recurring weekly availability
@@ -519,16 +549,23 @@ export default function DoctorAvailabilityManagement() {
                     onClick={() => {
                       // Save all weekly slots
                       Object.keys(weeklySchedule).forEach((dayId) => {
-                        weeklySchedule[dayId].forEach((slot: any) => {
-                          if (slot.id && slot.id.startsWith("temp")) {
-                            // This is a new slot, create it
-                            handleCreateWeeklySlot(
-                              parseInt(dayId),
-                              slot.start_time,
-                              slot.end_time
-                            );
+                        (weeklySchedule[parseInt(dayId)] || []).forEach(
+                          (slot: {
+                            id?: string;
+                            start_time: string;
+                            end_time: string;
+                            slot_duration: number;
+                          }) => {
+                            if (slot.id && slot.id.startsWith("temp")) {
+                              // This is a new slot, create it
+                              handleCreateWeeklySlot(
+                                parseInt(dayId),
+                                slot.start_time,
+                                slot.end_time
+                              );
+                            }
                           }
-                        });
+                        );
                       });
                     }}
                   >
@@ -557,7 +594,15 @@ export default function DoctorAvailabilityManagement() {
                     weeklySchedule[day.id].length > 0 ? (
                       <div className="space-y-3">
                         {weeklySchedule[day.id].map(
-                          (slot: any, index: number) => (
+                          (
+                            slot: {
+                              id?: string;
+                              start_time: string;
+                              end_time: string;
+                              slot_duration: number;
+                            },
+                            index: number
+                          ) => (
                             <div
                               key={slot.id || index}
                               className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg"
@@ -600,7 +645,7 @@ export default function DoctorAvailabilityManagement() {
                               {slot.id && !slot.id.startsWith("temp") && (
                                 <button
                                   onClick={() =>
-                                    handleDeleteWeeklySlot(slot.id)
+                                    slot.id && handleDeleteWeeklySlot(slot.id)
                                   }
                                   className="text-red-500 hover:text-red-700 text-xs"
                                 >
@@ -626,7 +671,7 @@ export default function DoctorAvailabilityManagement() {
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
-                    {selectedDoctor.name}'s Availability
+                    {selectedDoctor.name}&apos;s Availability
                   </h3>
                   <p className="text-sm text-gray-500">
                     Manage availability for the next 7 days

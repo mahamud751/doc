@@ -86,8 +86,6 @@ export function ResponsiveCard({
 export function ResponsiveTable({
   children,
   className = "",
-  striped = true,
-  hoverable = true,
 }: ResponsiveTableProps) {
   return (
     <div className="overflow-x-auto">

@@ -35,6 +35,10 @@ interface Order {
   items?: OrderItem[];
 }
 
+interface FetchError extends Error {
+  message: string;
+}
+
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,9 +84,10 @@ export default function AdminOrdersPage() {
 
       const data = await response.json();
       setOrders(data.orders || []);
-    } catch (error: any) {
-      console.error("Error fetching orders:", error);
-      setError(error.message || "Failed to load orders");
+    } catch (error) {
+      const fetchError = error as FetchError;
+      console.error("Error fetching orders:", fetchError);
+      setError(fetchError.message || "Failed to load orders");
     } finally {
       setLoading(false);
     }
@@ -107,17 +112,33 @@ export default function AdminOrdersPage() {
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
+      // Validate that newStatus is one of the allowed values
+      const validStatuses: Order["status"][] = [
+        "PENDING",
+        "PROCESSING",
+        "SHIPPED",
+        "DELIVERED",
+        "CANCELLED",
+      ];
+
+      if (!validStatuses.includes(newStatus as Order["status"])) {
+        throw new Error(`Invalid status: ${newStatus}`);
+      }
+
       // In a real app, this would be an API call to update the order status
       setOrders(
         orders.map((order) =>
-          order.id === orderId ? { ...order, status: newStatus as any } : order
+          order.id === orderId
+            ? { ...order, status: newStatus as Order["status"] }
+            : order
         )
       );
 
       // Show success message
       alert(`Order status updated to ${newStatus}`);
-    } catch (error: any) {
-      console.error("Error updating order status:", error);
+    } catch (error) {
+      const fetchError = error as FetchError;
+      console.error("Error updating order status:", fetchError);
       alert("Failed to update order status");
     }
   };

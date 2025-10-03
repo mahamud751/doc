@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { Menu, X, ChevronDown, User, Settings, LogOut } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -199,10 +200,12 @@ export default function ResponsiveLayout({
                     </div>
                     <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
                       {user.avatar ? (
-                        <img
+                        <Image
                           src={user.avatar}
-                          alt={user.name}
-                          className="w-8 h-8 rounded-full"
+                          alt={`${user.name}'s avatar`}
+                          width={32}
+                          height={32}
+                          className="rounded-full"
                         />
                       ) : (
                         <User className="w-4 h-4 text-white" />

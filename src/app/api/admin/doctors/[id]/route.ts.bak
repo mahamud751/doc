@@ -4,7 +4,7 @@ import { verifyAuthToken } from "@/lib/auth-utils";
 
 export async function GET(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     // Verify admin authorization
@@ -20,7 +20,7 @@ export async function GET(
       );
     }
 
-    const { id: doctorId } = await context.params;
+    const doctorId = params.id;
 
     // Fetch single doctor with their profile
     const doctor = await prisma.user.findUnique({
@@ -93,7 +93,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     // Verify admin authorization
@@ -109,7 +109,7 @@ export async function PUT(
       );
     }
 
-    const { id: doctorId } = await context.params;
+    const doctorId = params.id;
     const body = await request.json();
     const { user_data, profile_data } = body;
 
@@ -178,7 +178,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     // Verify admin authorization
@@ -194,7 +194,7 @@ export async function DELETE(
       );
     }
 
-    const { id: doctorId } = await context.params;
+    const doctorId = params.id;
 
     // Get doctor info before deletion
     const doctor = await prisma.user.findUnique({

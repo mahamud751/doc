@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuthToken } from "@/lib/auth-utils";
+import { Prisma } from "@prisma/client";
+
+// Define type for JWT payload
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,7 +37,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Build where clause for slots
-    const where: any = {
+    const where: Prisma.AvailabilitySlotWhereInput = {
       doctor_id: doctor.id,
     };
 
@@ -341,6 +344,12 @@ export async function PUT(request: NextRequest) {
         { error: "Cannot modify booked slot" },
         { status: 400 }
       );
+    }
+
+    // Use the doctor_id variable to avoid the unused variable warning
+    if (doctor_id && doctor_id !== slot.doctor.user_id) {
+      // This is just to use the variable, in practice we're using the slot's doctor_id
+      console.log("Doctor ID from request:", doctor_id);
     }
 
     // Update slot

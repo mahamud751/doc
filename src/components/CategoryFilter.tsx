@@ -153,7 +153,7 @@ export default function CategoryFilter({
             >
               <span>Searching for:</span>
               <span className={cn("font-semibold", colors.text)}>
-                "{searchTerm}"
+                &quot;{searchTerm}&quot;
               </span>
             </motion.div>
           )}

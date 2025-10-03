@@ -1,32 +1,27 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import ExportButton, { prepareExportData } from "@/components/ExportButton";
 import {
-  Calendar,
-  Clock,
-  User,
-  Stethoscope,
-  Edit,
-  Eye,
-  X,
-  Check,
-  Plus,
-  Search,
-  Filter,
-  Phone,
-  Mail,
-  AlertCircle,
-} from "lucide-react";
-import {
-  ResponsiveCard,
   ResponsiveButton,
+  ResponsiveCard,
   ResponsiveInput,
   ResponsiveModal,
-  ResponsiveGrid,
 } from "@/components/ResponsiveComponents";
-import ExportButton, { prepareExportData } from "@/components/ExportButton";
 import { formatDate } from "@/lib/utils";
+import { motion } from "framer-motion";
+import {
+  AlertCircle,
+  Calendar,
+  Check,
+  Clock,
+  Edit,
+  Eye,
+  Plus,
+  Stethoscope,
+  User,
+  X,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface Appointment {
   id: string;
@@ -67,6 +62,25 @@ interface Appointment {
   };
 }
 
+interface Doctor {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  profile?: {
+    specialties?: string[];
+    // Add other properties as needed
+  };
+}
+
+interface Patient {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  // Add other properties as needed
+}
+
 interface AppointmentFormData {
   patient_id: string;
   doctor_id: string;
@@ -78,8 +92,8 @@ interface AppointmentFormData {
 
 export default function AppointmentManagement() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [doctors, setDoctors] = useState<any[]>([]);
-  const [patients, setPatients] = useState<any[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -111,7 +125,7 @@ export default function AppointmentManagement() {
     fetchDoctors();
     fetchPatients();
     calculateStats();
-  }, []);
+  }, [appointments]);
 
   const fetchAppointments = async () => {
     try {
@@ -131,6 +145,7 @@ export default function AppointmentManagement() {
         setError("Failed to fetch appointments");
       }
     } catch (err) {
+      console.error("Error loading appointments:", err);
       setError("Error loading appointments");
     } finally {
       setLoading(false);
@@ -151,8 +166,8 @@ export default function AppointmentManagement() {
         const data = await response.json();
         setDoctors(data.doctors || []);
       }
-    } catch (err) {
-      console.error("Error fetching doctors:", err);
+    } catch (error) {
+      console.error("Error fetching doctors:", error);
     }
   };
 
@@ -170,8 +185,8 @@ export default function AppointmentManagement() {
         const data = await response.json();
         setPatients(data.users || []);
       }
-    } catch (err) {
-      console.error("Error fetching patients:", err);
+    } catch (error) {
+      console.error("Error fetching patients:", error);
     }
   };
 
@@ -223,7 +238,8 @@ export default function AppointmentManagement() {
         const data = await response.json();
         setError(data.error || "Failed to create appointment");
       }
-    } catch (err) {
+    } catch (error) {
+      console.error("Error creating appointment:", error);
       setError("Error creating appointment");
     }
   };
@@ -257,7 +273,8 @@ export default function AppointmentManagement() {
       } else {
         setError("Failed to update appointment");
       }
-    } catch (err) {
+    } catch (error) {
+      console.error("Error updating appointment:", error);
       setError("Error updating appointment");
     }
   };
@@ -285,30 +302,9 @@ export default function AppointmentManagement() {
       } else {
         setError("Failed to update appointment status");
       }
-    } catch (err) {
+    } catch (error) {
+      console.error("Error updating appointment status:", error);
       setError("Error updating appointment status");
-    }
-  };
-
-  const handleDeleteAppointment = async (appointmentId: string) => {
-    if (!confirm("Are you sure you want to delete this appointment?")) return;
-
-    try {
-      const token = localStorage.getItem("authToken");
-      const response = await fetch(`/api/appointments?id=${appointmentId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        await fetchAppointments();
-      } else {
-        setError("Failed to delete appointment");
-      }
-    } catch (err) {
-      setError("Error deleting appointment");
     }
   };
 
@@ -434,7 +430,7 @@ export default function AppointmentManagement() {
               <p className="text-2xl font-bold text-green-600">
                 {stats.todayAppointments}
               </p>
-              <p className="text-sm text-gray-600">Today's Appointments</p>
+              <p className="text-sm text-gray-600">Today&apos;s Appointments</p>
             </div>
           </div>
         </ResponsiveCard>
@@ -500,14 +496,19 @@ export default function AppointmentManagement() {
           <div className="flex items-end">
             <ExportButton
               data={prepareExportData(
-                filteredAppointments,
+                filteredAppointments.map((appointment) => ({
+                  ...appointment,
+                  // Flatten nested properties for export
+                  patientName: appointment.patient.name,
+                  doctorName: appointment.doctor.name,
+                })),
                 [
-                  { key: "patient.name", label: "Patient Name" },
-                  { key: "doctor.name", label: "Doctor Name" },
+                  { key: "patientName", label: "Patient Name" },
+                  { key: "doctorName", label: "Doctor Name" },
                   {
                     key: "scheduled_at",
                     label: "Scheduled Date/Time",
-                    format: (value) => formatDate(value),
+                    format: (value) => formatDate(value as string),
                   },
                   { key: "status", label: "Status" },
                   { key: "meeting_type", label: "Meeting Type" },
@@ -754,7 +755,7 @@ export default function AppointmentManagement() {
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    meeting_type: e.target.value as any,
+                    meeting_type: e.target.value as "VIDEO" | "AUDIO" | "CHAT",
                   })
                 }
                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"

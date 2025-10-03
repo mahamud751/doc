@@ -1,19 +1,54 @@
-import { Server as SocketIOServer } from "socket.io";
+"use client";
+
+import { Server as SocketIOServer, Socket } from "socket.io";
 import { prisma } from "@/lib/prisma";
 import { verifyJWT } from "@/lib/auth";
+import { User } from "@prisma/client";
+import { Server as HttpServer } from "http";
+
+interface DoctorData {
+  userId: string;
+  socketId: string;
+  lastSeen: Date;
+  status: "online" | "busy" | "away";
+}
+
+interface MessageData {
+  appointmentId: string;
+  message: string;
+  toUserId: string;
+}
+
+interface OrderUpdateData {
+  orderId: string;
+  status: string;
+  orderType: string;
+  patientId: string;
+}
+
+interface StatusUpdateData {
+  status: "online" | "busy" | "away";
+}
+
+interface NotificationData {
+  id: string;
+  title: string;
+  message: string;
+  type: string;
+  timestamp: Date;
+  isRead: boolean;
+}
+
+interface AppointmentUpdateData {
+  appointmentId: string;
+  status: string;
+  // Add other appointment update properties as needed
+}
 
 // Store for tracking online doctors
-const onlineDoctors = new Map<
-  string,
-  {
-    userId: string;
-    socketId: string;
-    lastSeen: Date;
-    status: "online" | "busy" | "away";
-  }
->();
+const onlineDoctors = new Map<string, DoctorData>();
 
-export function initializeSocketIO(httpServer: any) {
+export function initializeSocketIO(httpServer: HttpServer) {
   const io = new SocketIOServer(httpServer, {
     cors: {
       origin: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
@@ -22,14 +57,14 @@ export function initializeSocketIO(httpServer: any) {
   });
 
   // Middleware for authentication
-  io.use(async (socket, next) => {
+  io.use(async (socket: Socket, next) => {
     try {
       const token = socket.handshake.auth.token;
       if (!token) {
         return next(new Error("Authentication error"));
       }
 
-      const decoded = verifyJWT(token);
+      const decoded = verifyJWT(token) as User & { userId: string };
 
       // Fetch user details
       const user = await prisma.user.findUnique({
@@ -43,15 +78,16 @@ export function initializeSocketIO(httpServer: any) {
         return next(new Error("User not found or inactive"));
       }
 
-      socket.data.user = user;
+      (socket.data as { user: typeof user }).user = user;
       next();
-    } catch (error) {
+    } catch (_error) {
       next(new Error("Authentication error"));
     }
   });
 
-  io.on("connection", (socket) => {
-    const user = socket.data.user;
+  io.on("connection", (socket: Socket) => {
+    const user = (socket.data as { user: User & { doctor_profile?: unknown } })
+      .user;
     console.log(`User connected: ${user.name} (${user.id})`);
 
     // Handle doctor status updates
@@ -81,7 +117,7 @@ export function initializeSocketIO(httpServer: any) {
       });
 
       // Handle doctor status change
-      socket.on("update-status", async (data) => {
+      socket.on("update-status", async (data: StatusUpdateData) => {
         const { status } = data; // 'online', 'busy', 'away'
 
         if (onlineDoctors.has(user.id)) {
@@ -117,18 +153,18 @@ export function initializeSocketIO(httpServer: any) {
     }
 
     // Handle appointment notifications
-    socket.on("join-appointment", (appointmentId) => {
+    socket.on("join-appointment", (appointmentId: string) => {
       socket.join(`appointment-${appointmentId}`);
       console.log(`${user.name} joined appointment ${appointmentId}`);
     });
 
-    socket.on("leave-appointment", (appointmentId) => {
+    socket.on("leave-appointment", (appointmentId: string) => {
       socket.leave(`appointment-${appointmentId}`);
       console.log(`${user.name} left appointment ${appointmentId}`);
     });
 
     // Handle real-time messaging
-    socket.on("send-message", async (data) => {
+    socket.on("send-message", async (data: MessageData) => {
       const { appointmentId, message, toUserId } = data;
 
       try {
@@ -167,7 +203,7 @@ export function initializeSocketIO(httpServer: any) {
     });
 
     // Handle order status updates
-    socket.on("order-status-update", (data) => {
+    socket.on("order-status-update", (data: OrderUpdateData) => {
       const { orderId, status, orderType, patientId } = data;
 
       // Emit to patient
@@ -257,13 +293,16 @@ export function initializeSocketIO(httpServer: any) {
 export function sendNotificationToUser(
   io: SocketIOServer,
   userId: string,
-  notification: any
+  notification: NotificationData
 ) {
   io.to(`notifications-${userId}`).emit("notification", notification);
 }
 
 // Function to update order status in real-time
-export function broadcastOrderUpdate(io: SocketIOServer, orderUpdate: any) {
+export function broadcastOrderUpdate(
+  io: SocketIOServer,
+  orderUpdate: OrderUpdateData
+) {
   io.emit("order-update", orderUpdate);
 }
 
@@ -271,7 +310,7 @@ export function broadcastOrderUpdate(io: SocketIOServer, orderUpdate: any) {
 export function notifyAppointmentUpdate(
   io: SocketIOServer,
   appointmentId: string,
-  update: any
+  update: AppointmentUpdateData
 ) {
   io.to(`appointment-${appointmentId}`).emit("appointment-update", update);
 }

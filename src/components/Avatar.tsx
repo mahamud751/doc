@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { User } from "lucide-react";
 import { getInitials } from "@/lib/utils";
 
@@ -20,14 +21,22 @@ export default function Avatar({
     lg: "h-14 w-14 text-lg",
   };
 
+  const dimensions = {
+    sm: { width: 32, height: 32 },
+    md: { width: 40, height: 40 },
+    lg: { width: 56, height: 56 },
+  };
+
   const initials = name ? getInitials(name) : "";
 
   if (src) {
     return (
-      <img
+      <Image
         src={src}
         alt={name || "Avatar"}
-        className={`rounded-full object-cover ${sizeClasses[size]} ${className}`}
+        width={dimensions[size].width}
+        height={dimensions[size].height}
+        className={`rounded-full object-cover ${className}`}
       />
     );
   }

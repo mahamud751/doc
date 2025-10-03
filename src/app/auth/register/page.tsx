@@ -60,8 +60,10 @@ export default function RegisterPage() {
 
       // Registration successful - redirect to login
       router.push("/auth/login?registered=true");
-    } catch (error: any) {
-      setError(error.message);
+    } catch (error: unknown) {
+      setError(
+        error instanceof Error ? error.message : "An unknown error occurred"
+      );
     } finally {
       setLoading(false);
     }

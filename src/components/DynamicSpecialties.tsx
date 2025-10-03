@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
+import type { LucideIcon } from "lucide-react";
 
 interface Specialty {
   id: string;
@@ -29,7 +30,7 @@ interface Specialty {
 }
 
 // Icon mapping for specialties
-const specialtyIcons: { [key: string]: any } = {
+const specialtyIcons: { [key: string]: LucideIcon } = {
   Cardiology: Heart,
   Neurology: Brain,
   Orthopedics: Bone,
@@ -81,9 +82,11 @@ export default function DynamicSpecialties() {
       } else {
         throw new Error(data.error || "Failed to load specialties");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error fetching specialties:", error);
-      setError(error.message || "Failed to load specialties");
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to load specialties";
+      setError(errorMessage);
 
       // Fallback to default specialties
       setSpecialties([
@@ -235,7 +238,7 @@ export default function DynamicSpecialties() {
         >
           <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-white/30 max-w-4xl mx-auto">
             <h3 className="text-2xl font-bold text-gray-900 mb-4">
-              Can't find your specialist?
+              Can&apos;t find your specialist?
             </h3>
             <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
               Our platform hosts doctors from many more specialties. Browse our

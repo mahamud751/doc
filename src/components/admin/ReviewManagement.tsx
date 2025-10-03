@@ -1,32 +1,27 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import ExportButton, { prepareExportData } from "@/components/ExportButton";
 import {
-  Star,
-  Eye,
-  Check,
-  X,
-  Search,
-  Filter,
-  MessageSquare,
-  User,
-  Stethoscope,
-  AlertTriangle,
-  ThumbsUp,
-  ThumbsDown,
-} from "lucide-react";
-import {
+  ResponsiveButton,
   ResponsiveCard,
   ResponsiveGrid,
   ResponsiveInput,
-  ResponsiveButton,
   ResponsiveModal,
 } from "@/components/ResponsiveComponents";
-import ExportButton, { prepareExportData } from "@/components/ExportButton";
 import { formatDate } from "@/lib/utils";
+import { motion } from "framer-motion";
+import {
+  AlertTriangle,
+  Check,
+  Eye,
+  MessageSquare,
+  Star,
+  ThumbsUp,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
-interface Review {
+interface Review extends Record<string, unknown> {
   id: string;
   appointment_id: string;
   patient_id: string;
@@ -69,13 +64,30 @@ export default function ReviewManagement() {
     averageRating: 0,
   });
 
+  const calculateStats = useCallback(() => {
+    const totalReviews = reviews.length;
+    const pendingReviews = reviews.filter(
+      (review) => !review.is_approved
+    ).length;
+    const approvedReviews = reviews.filter(
+      (review) => review.is_approved
+    ).length;
+    const averageRating =
+      reviews.length > 0
+        ? reviews.reduce((sum, review) => sum + review.rating, 0) /
+          reviews.length
+        : 0;
+
+    setStats({ totalReviews, pendingReviews, approvedReviews, averageRating });
+  }, [reviews]);
+
   useEffect(() => {
     fetchReviews();
   }, []);
 
   useEffect(() => {
     calculateStats();
-  }, [reviews]);
+  }, [reviews, calculateStats]);
 
   const fetchReviews = async () => {
     try {
@@ -94,28 +106,11 @@ export default function ReviewManagement() {
       } else {
         setError("Failed to fetch reviews");
       }
-    } catch (err) {
+    } catch (_error: unknown) {
       setError("Error loading reviews");
     } finally {
       setLoading(false);
     }
-  };
-
-  const calculateStats = () => {
-    const totalReviews = reviews.length;
-    const pendingReviews = reviews.filter(
-      (review) => !review.is_approved
-    ).length;
-    const approvedReviews = reviews.filter(
-      (review) => review.is_approved
-    ).length;
-    const averageRating =
-      reviews.length > 0
-        ? reviews.reduce((sum, review) => sum + review.rating, 0) /
-          reviews.length
-        : 0;
-
-    setStats({ totalReviews, pendingReviews, approvedReviews, averageRating });
   };
 
   const handleApproveReview = async (reviewId: string) => {
@@ -134,7 +129,7 @@ export default function ReviewManagement() {
       } else {
         setError("Failed to approve review");
       }
-    } catch (err) {
+    } catch (_error: unknown) {
       setError("Error approving review");
     }
   };
@@ -156,7 +151,7 @@ export default function ReviewManagement() {
       } else {
         setError("Failed to reject review");
       }
-    } catch (err) {
+    } catch (_error: unknown) {
       setError("Error rejecting review");
     }
   };
@@ -326,8 +321,16 @@ export default function ReviewManagement() {
               data={prepareExportData(
                 filteredReviews,
                 [
-                  { key: "patient.name", label: "Patient Name" },
-                  { key: "doctor.name", label: "Doctor Name" },
+                  {
+                    key: "patient",
+                    label: "Patient Name",
+                    format: (value) => (value as { name: string }).name,
+                  },
+                  {
+                    key: "doctor",
+                    label: "Doctor Name",
+                    format: (value) => (value as { name: string }).name,
+                  },
                   { key: "rating", label: "Rating" },
                   { key: "comment", label: "Comment" },
                   {
@@ -338,7 +341,12 @@ export default function ReviewManagement() {
                   {
                     key: "created_at",
                     label: "Review Date",
-                    format: (value) => formatDate(value),
+                    format: (value) => {
+                      if (typeof value === "string" || value instanceof Date) {
+                        return formatDate(value);
+                      }
+                      return "";
+                    },
                   },
                 ],
                 "reviews-export"
@@ -407,7 +415,7 @@ export default function ReviewManagement() {
               <div className="space-y-3 mb-4">
                 {review.comment && (
                   <p className="text-sm text-gray-700 line-clamp-3">
-                    "{review.comment}"
+                    &quot;{review.comment}&quot;
                   </p>
                 )}
 
@@ -561,7 +569,7 @@ export default function ReviewManagement() {
                 </label>
                 <div className="mt-2 p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-900">
-                    "{selectedReview.comment}"
+                    &quot;{selectedReview.comment}&quot;
                   </p>
                 </div>
               </div>

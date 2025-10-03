@@ -1,31 +1,28 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import ExportButton, { prepareExportData } from "@/components/ExportButton";
 import {
-  Pill,
-  Plus,
-  Edit,
-  Trash2,
-  Search,
-  Package,
-  AlertTriangle,
-  Eye,
-  DollarSign,
-  Activity,
-  Archive,
-} from "lucide-react";
-import {
+  ResponsiveButton,
   ResponsiveCard,
   ResponsiveGrid,
   ResponsiveInput,
-  ResponsiveButton,
   ResponsiveModal,
 } from "@/components/ResponsiveComponents";
-import ExportButton, { prepareExportData } from "@/components/ExportButton";
-import { formatDate, formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import { motion } from "framer-motion";
+import {
+  Activity,
+  AlertTriangle,
+  DollarSign,
+  Edit,
+  Package,
+  Pill,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
-interface Medicine {
+interface Medicine extends Record<string, unknown> {
   id: string;
   name: string;
   generic_name?: string;
@@ -100,9 +97,28 @@ export default function MedicineManagement() {
     fetchMedicines();
   }, []);
 
+  const calculateStats = useCallback(() => {
+    const totalMedicines = medicines.length;
+    const activeMedicines = medicines.filter((med) => med.is_active).length;
+    const lowStockMedicines = medicines.filter(
+      (med) => med.stock_quantity < 10
+    ).length;
+    const totalValue = medicines.reduce(
+      (sum, med) => sum + med.unit_price * med.stock_quantity,
+      0
+    );
+
+    setStats({
+      totalMedicines,
+      activeMedicines,
+      lowStockMedicines,
+      totalValue,
+    });
+  }, [medicines]);
+
   useEffect(() => {
     calculateStats();
-  }, [medicines]);
+  }, [medicines, calculateStats]);
 
   const fetchMedicines = async () => {
     try {
@@ -121,30 +137,11 @@ export default function MedicineManagement() {
       } else {
         setError("Failed to fetch medicines");
       }
-    } catch (err) {
+    } catch (_error: unknown) {
       setError("Error loading medicines");
     } finally {
       setLoading(false);
     }
-  };
-
-  const calculateStats = () => {
-    const totalMedicines = medicines.length;
-    const activeMedicines = medicines.filter((med) => med.is_active).length;
-    const lowStockMedicines = medicines.filter(
-      (med) => med.stock_quantity < 10
-    ).length;
-    const totalValue = medicines.reduce(
-      (sum, med) => sum + med.unit_price * med.stock_quantity,
-      0
-    );
-
-    setStats({
-      totalMedicines,
-      activeMedicines,
-      lowStockMedicines,
-      totalValue,
-    });
   };
 
   const handleCreateMedicine = async () => {
@@ -167,7 +164,7 @@ export default function MedicineManagement() {
         const data = await response.json();
         setError(data.error || "Failed to create medicine");
       }
-    } catch (err) {
+    } catch (_error: unknown) {
       setError("Error creating medicine");
     }
   };
@@ -197,7 +194,7 @@ export default function MedicineManagement() {
       } else {
         setError("Failed to update medicine");
       }
-    } catch (err) {
+    } catch (_error: unknown) {
       setError("Error updating medicine");
     }
   };
@@ -219,7 +216,7 @@ export default function MedicineManagement() {
       } else {
         setError("Failed to delete medicine");
       }
-    } catch (err) {
+    } catch (_error: unknown) {
       setError("Error deleting medicine");
     }
   };
@@ -407,7 +404,7 @@ export default function MedicineManagement() {
                   {
                     key: "unit_price",
                     label: "Unit Price",
-                    format: (value) => formatCurrency(value),
+                    format: (value) => formatCurrency(Number(value)),
                   },
                   { key: "stock_quantity", label: "Stock Quantity" },
                   {

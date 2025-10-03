@@ -1,6 +1,49 @@
 // localStorage utility with error handling
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  // Add other user properties as needed
+}
+
+interface UserSession {
+  user: User;
+  token: string;
+  timestamp: number;
+}
+
+interface Preferences {
+  theme: string;
+  notifications: boolean;
+  language: string;
+}
+
+interface CartItem {
+  id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  // Add other cart item properties as needed
+}
+
+interface Cart {
+  items: CartItem[];
+  total: number;
+  // Add other cart properties as needed
+}
+
+interface Appointment {
+  id: string;
+  doctorId: string;
+  patientId: string;
+  date: string;
+  time: string;
+  // Add other appointment properties as needed
+}
+
 export class LocalStorageManager {
-  static setItem(key: string, value: any): boolean {
+  static setItem<T>(key: string, value: T): boolean {
     try {
       localStorage.setItem(key, JSON.stringify(value));
       return true;
@@ -41,7 +84,7 @@ export class LocalStorageManager {
   }
 
   // User session management
-  static saveUserSession(user: any, token: string): boolean {
+  static saveUserSession(user: User, token: string): boolean {
     const sessionData = {
       user,
       token,
@@ -50,12 +93,8 @@ export class LocalStorageManager {
     return this.setItem("userSession", sessionData);
   }
 
-  static getUserSession(): {
-    user: any;
-    token: string;
-    timestamp: number;
-  } | null {
-    return this.getItem("userSession");
+  static getUserSession(): UserSession | null {
+    return this.getItem<UserSession>("userSession", null);
   }
 
   static clearUserSession(): boolean {
@@ -77,12 +116,12 @@ export class LocalStorageManager {
   }
 
   // Cart management
-  static saveCart(cart: any): boolean {
+  static saveCart(cart: Cart): boolean {
     return this.setItem("medicineCart", cart);
   }
 
-  static getCart(): any {
-    return this.getItem("medicineCart", {});
+  static getCart(): Cart {
+    return this.getItem<Cart>("medicineCart", { items: [], total: 0 }) as Cart;
   }
 
   static clearCart(): boolean {
@@ -90,12 +129,12 @@ export class LocalStorageManager {
   }
 
   // Appointment data
-  static saveAppointmentData(appointment: any): boolean {
+  static saveAppointmentData(appointment: Appointment): boolean {
     return this.setItem("lastAppointment", appointment);
   }
 
-  static getAppointmentData(): any {
-    return this.getItem("lastAppointment");
+  static getAppointmentData(): Appointment | null {
+    return this.getItem<Appointment>("lastAppointment", null);
   }
 
   // Lab packages selection
@@ -104,7 +143,7 @@ export class LocalStorageManager {
   }
 
   static getSelectedLabPackages(): string[] {
-    return this.getItem("selectedLabPackages", []) as string[];
+    return this.getItem<string[]>("selectedLabPackages", []) as string[];
   }
 
   static clearSelectedLabPackages(): boolean {
@@ -116,7 +155,7 @@ export class LocalStorageManager {
     type: "doctor" | "medicine" | "lab",
     query: string
   ): boolean {
-    const history = this.getItem(`${type}SearchHistory`, []);
+    const history = this.getItem<string[]>(`${type}SearchHistory`, []);
     if (Array.isArray(history)) {
       const updatedHistory = [
         query,
@@ -128,19 +167,19 @@ export class LocalStorageManager {
   }
 
   static getSearchHistory(type: "doctor" | "medicine" | "lab"): string[] {
-    return this.getItem(`${type}SearchHistory`, []) as string[];
+    return this.getItem<string[]>(`${type}SearchHistory`, []) as string[];
   }
 
   // Theme and preferences
-  static savePreferences(preferences: any): boolean {
+  static savePreferences(preferences: Preferences): boolean {
     return this.setItem("userPreferences", preferences);
   }
 
-  static getPreferences(): any {
-    return this.getItem("userPreferences", {
+  static getPreferences(): Preferences {
+    return this.getItem<Preferences>("userPreferences", {
       theme: "light",
       notifications: true,
       language: "en",
-    });
+    }) as Preferences;
   }
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyJWT } from "@/lib/auth";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, AvailabilitySlot } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -77,7 +77,7 @@ export async function GET(
       avatar_url: doctor.avatar_url,
       is_available_online: doctor.doctor_profile.is_available_online || false,
       next_available_slots: doctor.doctor_profile.availability_slots.map(
-        (slot: any) => ({
+        (slot: AvailabilitySlot) => ({
           id: slot.id,
           start_time: slot.start_time,
           end_time: slot.end_time,

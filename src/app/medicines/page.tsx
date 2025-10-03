@@ -57,9 +57,11 @@ export default function MedicinesPage() {
 
       const data = await response.json();
       setMedicines(data.medicines || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error fetching medicines:", error);
-      setError(error.message || "Failed to load medicines");
+      setError(
+        error instanceof Error ? error.message : "Failed to load medicines"
+      );
     } finally {
       setLoading(false);
     }
@@ -283,7 +285,7 @@ export default function MedicinesPage() {
               transition={{ delay: 0.4 }}
               className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8"
             >
-              {filteredMedicines.map((medicine, index) => (
+              {filteredMedicines.map((medicine) => (
                 <MedicineCard
                   key={medicine.id}
                   medicine={medicine}

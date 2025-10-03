@@ -1,8 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import jwt from "jsonwebtoken";
+import { Prisma } from "@prisma/client";
 
-const prisma = new PrismaClient();
+interface JwtPayload {
+  userId: string;
+  role: string;
+  iat: number;
+  exp: number;
+}
+
+interface SpecialtyUpdateData {
+  name?: string;
+  description?: string;
+  icon_url?: string;
+  is_active?: boolean;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,7 +25,7 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
     if (decoded.role !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -21,7 +34,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search");
 
-    let whereClause: any = {};
+    const whereClause: Prisma.SpecialtyWhereInput = {};
 
     if (search) {
       whereClause.OR = [
@@ -80,7 +93,7 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
     if (decoded.role !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -138,7 +151,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
     if (decoded.role !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -153,7 +166,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const updateData: any = {};
+    const updateData: SpecialtyUpdateData = {};
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
     if (icon_url !== undefined) updateData.icon_url = icon_url;
@@ -182,7 +195,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
     if (decoded.role !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

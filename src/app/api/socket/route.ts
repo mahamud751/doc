@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
 import { initializeSocketIO } from "@/lib/socket-server";
+import { NextResponse } from "next/server";
 
 // Export the functions for external use
 export { initializeSocketIO };
 
 // Health check endpoint for socket server
-export async function GET(request: NextRequest) {
+export async function GET() {
   // In a standard Next.js setup without custom server, we can't actually check Socket.IO status
   // We'll return a response indicating the API is accessible
   return NextResponse.json({
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 }
 
 // Endpoint to test if WebSocket upgrade is supported (for health checking)
-export async function POST(request: NextRequest) {
+export async function POST() {
   // This would be used in a custom server setup to test WebSocket connectivity
   // In standard Next.js, we just return a success response
   return NextResponse.json({

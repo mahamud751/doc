@@ -4,6 +4,33 @@
  * Provides debugging helpers for socket connection issues
  */
 
+interface EnvironmentInfo {
+  isBrowser: boolean;
+  isWebSocketSupported: boolean;
+  envVars: {
+    socketUrl?: string;
+  };
+  isMockMode: boolean;
+}
+
+interface ConnectivityTestResult {
+  success: boolean;
+  message: string;
+  details?:
+    | string
+    | {
+        status?: number;
+        statusText?: string;
+        error?: string;
+        type?: string;
+      };
+  isMockMode: boolean;
+}
+
+interface FetchError extends Error {
+  name: string;
+}
+
 export class SocketDebug {
   /**
    * Check browser WebSocket support
@@ -17,14 +44,7 @@ export class SocketDebug {
   /**
    * Check if the current environment supports Socket.IO
    */
-  public static checkEnvironment(): {
-    isBrowser: boolean;
-    isWebSocketSupported: boolean;
-    envVars: {
-      socketUrl?: string;
-    };
-    isMockMode: boolean;
-  } {
+  public static checkEnvironment(): EnvironmentInfo {
     const isBrowser = typeof window !== "undefined";
     const isWebSocketSupported = this.checkWebSocketSupport();
 
@@ -76,12 +96,7 @@ export class SocketDebug {
   /**
    * Test basic connectivity to the socket server endpoint
    */
-  public static async testConnectivity(): Promise<{
-    success: boolean;
-    message: string;
-    details?: any;
-    isMockMode: boolean;
-  }> {
+  public static async testConnectivity(): Promise<ConnectivityTestResult> {
     try {
       const socketUrl =
         process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3000";
@@ -106,10 +121,11 @@ export class SocketDebug {
       });
 
       if (!response.ok) {
+        const responseText = await response.text();
         return {
           success: false,
           message: `HTTP connectivity test failed with status ${response.status}`,
-          details: await response.text(),
+          details: responseText,
           isMockMode: false,
         };
       }
@@ -123,13 +139,14 @@ export class SocketDebug {
         },
         isMockMode: false,
       };
-    } catch (error: any) {
+    } catch (error) {
+      const fetchError = error as FetchError;
       return {
         success: false,
         message: "Connectivity test failed",
         details: {
-          error: error.message,
-          type: error.name,
+          error: fetchError.message,
+          type: fetchError.name,
         },
         isMockMode: false,
       };

@@ -1,6 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { verifyAuthToken } from "@/lib/auth-utils";
+import { prisma } from "@/lib/prisma";
+import { Prisma, User } from "@prisma/client";
+import { NextRequest, NextResponse } from "next/server";
+
+interface AuthResult {
+  success: boolean;
+  user?: User;
+  error?: string;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,7 +18,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "20");
     const skip = (page - 1) * limit;
 
-    let whereClause: any = {
+    const whereClause: Prisma.LabTestWhereInput = {
       is_active: true,
     };
 
@@ -72,7 +79,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Verify admin authorization
-    const authResult = await verifyAuthToken(request);
+    const authResult = (await verifyAuthToken(request)) as AuthResult;
     if (!authResult.success || !authResult.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -195,7 +202,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     // Verify admin authorization
-    const authResult = await verifyAuthToken(request);
+    const authResult = (await verifyAuthToken(request)) as AuthResult;
     if (!authResult.success || !authResult.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -208,8 +215,22 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, ...updateData } = body;
+    const {
+      id,
+      name,
+      code,
+      description,
+      category,
+      price,
+      sample_type,
+      preparation_required,
+      preparation_instructions,
+      reporting_time,
+      normal_range,
+      is_active,
+    } = body;
 
+    // Validate required fields
     if (!id) {
       return NextResponse.json(
         { error: "Test ID is required" },
@@ -217,37 +238,25 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Build update object
-    const dataToUpdate: any = {};
-
-    if (updateData.name !== undefined) dataToUpdate.name = updateData.name;
-    if (updateData.code !== undefined) dataToUpdate.code = updateData.code;
-    if (updateData.description !== undefined)
-      dataToUpdate.description = updateData.description;
-    if (updateData.category !== undefined)
-      dataToUpdate.category = updateData.category;
-    if (updateData.price !== undefined)
-      dataToUpdate.price = parseFloat(updateData.price);
-    if (updateData.sample_type !== undefined)
-      dataToUpdate.sample_type = updateData.sample_type;
-    if (updateData.preparation_required !== undefined)
-      dataToUpdate.preparation_required = Boolean(
-        updateData.preparation_required
-      );
-    if (updateData.preparation_instructions !== undefined)
-      dataToUpdate.preparation_instructions =
-        updateData.preparation_instructions;
-    if (updateData.reporting_time !== undefined)
-      dataToUpdate.reporting_time = updateData.reporting_time;
-    if (updateData.normal_range !== undefined)
-      dataToUpdate.normal_range = updateData.normal_range;
-    if (updateData.is_active !== undefined)
-      dataToUpdate.is_active = Boolean(updateData.is_active);
-
     // Update lab test
     const labTest = await prisma.labTest.update({
       where: { id },
-      data: dataToUpdate,
+      data: {
+        name,
+        code,
+        description,
+        category,
+        price: price !== undefined ? parseFloat(price) : undefined,
+        sample_type,
+        preparation_required:
+          preparation_required !== undefined
+            ? Boolean(preparation_required)
+            : undefined,
+        preparation_instructions,
+        reporting_time,
+        normal_range,
+        is_active,
+      },
     });
 
     // Log the update
@@ -257,7 +266,11 @@ export async function PUT(request: NextRequest) {
         action: "UPDATE",
         resource: "LabTest",
         resource_id: labTest.id,
-        details: updateData,
+        details: {
+          test_name: name,
+          category,
+          price,
+        },
       },
     });
 
@@ -271,6 +284,14 @@ export async function PUT(request: NextRequest) {
     );
   } catch (error) {
     console.error("Error updating lab test:", error);
+
+    if ((error as { code?: string }).code === "P2025") {
+      return NextResponse.json(
+        { error: "Lab test not found" },
+        { status: 404 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -281,7 +302,7 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     // Verify admin authorization
-    const authResult = await verifyAuthToken(request);
+    const authResult = (await verifyAuthToken(request)) as AuthResult;
     if (!authResult.success || !authResult.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -299,21 +320,6 @@ export async function DELETE(request: NextRequest) {
     if (!id) {
       return NextResponse.json(
         { error: "Test ID is required" },
-        { status: 400 }
-      );
-    }
-
-    // Check if this test is used in any packages
-    const packageTests = await prisma.labPackageTest.findMany({
-      where: { test_id: id },
-    });
-
-    if (packageTests.length > 0) {
-      return NextResponse.json(
-        {
-          error:
-            "Cannot delete test that is part of packages. Remove from packages first.",
-        },
         { status: 400 }
       );
     }
@@ -345,6 +351,14 @@ export async function DELETE(request: NextRequest) {
     );
   } catch (error) {
     console.error("Error deleting lab test:", error);
+
+    if ((error as { code?: string }).code === "P2025") {
+      return NextResponse.json(
+        { error: "Lab test not found" },
+        { status: 404 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

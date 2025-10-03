@@ -1,27 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import ExportButton, { prepareExportData } from "@/components/ExportButton";
 import {
-  Search,
-  Plus,
-  Edit,
-  Trash2,
-  Tag,
-  Filter,
-  Download,
-  MoreVertical,
-} from "lucide-react";
-import {
-  ResponsiveCard,
   ResponsiveButton,
+  ResponsiveCard,
+  ResponsiveGrid,
   ResponsiveInput,
   ResponsiveModal,
-  ResponsiveGrid,
 } from "@/components/ResponsiveComponents";
-import ExportButton, { prepareExportData } from "@/components/ExportButton";
+import { motion } from "framer-motion";
+import { Edit, Filter, Plus, Search, Tag, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
 
-interface Category {
+interface Category extends Record<string, unknown> {
   id: string;
   name: string;
   type: "medicine" | "lab" | "specialty";

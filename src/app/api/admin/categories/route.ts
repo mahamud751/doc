@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Specialty } from "@prisma/client";
 import jwt from "jsonwebtoken";
+
+// Define type for JWT payload
+interface JwtPayload {
+  role: string;
+  [key: string]: unknown;
+}
+
+// Define type for categories
+interface Category {
+  id: string;
+  name: string;
+  type: string;
+  description?: string;
+}
 
 const prisma = new PrismaClient();
 
@@ -12,7 +26,7 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
     if (decoded.role !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -23,7 +37,7 @@ export async function GET(request: NextRequest) {
 
     // Since we don't have a dedicated categories table in the schema,
     // we'll return predefined categories for each type
-    let categories: any[] = [];
+    let categories: Category[] = [];
 
     switch (type) {
       case "medicine":
@@ -56,11 +70,11 @@ export async function GET(request: NextRequest) {
           where: { is_active: true },
           orderBy: { name: "asc" },
         });
-        categories = specialties.map((specialty: any) => ({
+        categories = specialties.map((specialty: Specialty) => ({
           id: specialty.id,
           name: specialty.name,
           type: "specialty",
-          description: specialty.description,
+          ...(specialty.description && { description: specialty.description }),
         }));
         break;
       default:
@@ -100,7 +114,7 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
     if (decoded.role !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -167,7 +181,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
     if (decoded.role !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -225,7 +239,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
     if (decoded.role !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

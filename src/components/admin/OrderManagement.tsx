@@ -1,30 +1,27 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import ExportButton, { prepareExportData } from "@/components/ExportButton";
 import {
-  ShoppingCart,
-  Package,
-  TestTube,
-  Eye,
-  Search,
-  Filter,
-  Truck,
-  Clock,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  DollarSign,
-} from "lucide-react";
-import {
+  ResponsiveButton,
   ResponsiveCard,
   ResponsiveGrid,
   ResponsiveInput,
-  ResponsiveButton,
   ResponsiveModal,
 } from "@/components/ResponsiveComponents";
-import ExportButton, { prepareExportData } from "@/components/ExportButton";
-import { formatDate, formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import { motion } from "framer-motion";
+import {
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  DollarSign,
+  Eye,
+  Package,
+  TestTube,
+  Truck,
+  XCircle,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface PharmacyOrder {
   id: string;
@@ -385,7 +382,7 @@ export default function OrderManagement() {
           <div className="flex items-end">
             <ExportButton
               data={prepareExportData(
-                filteredOrders,
+                filteredOrders as unknown as Record<string, unknown>[],
                 [
                   { key: "id", label: "Order ID" },
                   { key: "patient.name", label: "Patient Name" },
@@ -394,12 +391,12 @@ export default function OrderManagement() {
                   {
                     key: "total_amount",
                     label: "Total Amount",
-                    format: (value) => formatCurrency(value),
+                    format: (value) => formatCurrency(value as number),
                   },
                   {
                     key: "created_at",
                     label: "Order Date",
-                    format: (value) => formatDate(value),
+                    format: (value) => formatDate(value as string | Date),
                   },
                 ],
                 `${activeTab}-orders-export`
@@ -471,19 +468,19 @@ export default function OrderManagement() {
                 {activeTab === "pharmacy" && "items" in order && (
                   <div className="text-sm text-gray-600">
                     <span className="font-medium">Items:</span>{" "}
-                    {order.items.length} medicine(s)
+                    {(order as PharmacyOrder).items.length} medicine(s)
                   </div>
                 )}
                 {"delivery_date" in order && order.delivery_date && (
                   <div className="text-sm text-gray-600">
                     <span className="font-medium">Delivery:</span>{" "}
-                    {formatDate(order.delivery_date)}
+                    {formatDate(order.delivery_date as string)}
                   </div>
                 )}
                 {"tracking_number" in order && order.tracking_number && (
                   <div className="text-sm text-gray-600">
                     <span className="font-medium">Tracking:</span>{" "}
-                    {order.tracking_number}
+                    {order.tracking_number as string}
                   </div>
                 )}
                 <div className="flex items-center justify-between">
@@ -611,7 +608,7 @@ export default function OrderManagement() {
                       Delivery Date
                     </label>
                     <p className="text-sm text-gray-900">
-                      {formatDate(selectedOrder.delivery_date)}
+                      {formatDate(selectedOrder.delivery_date as string)}
                     </p>
                   </div>
                 )}
@@ -623,22 +620,31 @@ export default function OrderManagement() {
                   Order Items
                 </label>
                 <div className="bg-gray-50 rounded-lg p-4">
-                  {selectedOrder.items.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex justify-between items-center py-2 border-b border-gray-200 last:border-b-0"
-                    >
-                      <div>
-                        <span className="font-medium">{item.drug_name}</span>
-                        <span className="text-gray-500 ml-2">
-                          x {item.quantity}
+                  {(selectedOrder as PharmacyOrder).items.map(
+                    (
+                      item: {
+                        drug_name: string;
+                        quantity: number;
+                        price: number;
+                      },
+                      index: number
+                    ) => (
+                      <div
+                        key={index}
+                        className="flex justify-between items-center py-2 border-b border-gray-200 last:border-b-0"
+                      >
+                        <div>
+                          <span className="font-medium">{item.drug_name}</span>
+                          <span className="text-gray-500 ml-2">
+                            x {item.quantity}
+                          </span>
+                        </div>
+                        <span className="font-semibold">
+                          {formatCurrency(item.price * item.quantity)}
                         </span>
                       </div>
-                      <span className="font-semibold">
-                        {formatCurrency(item.price * item.quantity)}
-                      </span>
-                    </div>
-                  ))}
+                    )
+                  )}
                 </div>
               </div>
             )}
@@ -662,7 +668,7 @@ export default function OrderManagement() {
                     Tracking Number
                   </label>
                   <p className="text-sm text-gray-900">
-                    {selectedOrder.tracking_number}
+                    {selectedOrder.tracking_number as string}
                   </p>
                 </div>
               )}

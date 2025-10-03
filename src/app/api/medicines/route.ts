@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyJWT } from "@/lib/auth";
+import { Prisma } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,7 +9,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search");
     const category = searchParams.get("category");
 
-    let whereClause: any = {
+    const whereClause: Prisma.MedicineWhereInput = {
       is_active: true,
     };
 
@@ -151,12 +152,12 @@ export async function PUT(request: NextRequest) {
       updateData.stock_quantity = parseInt(updateData.stock_quantity);
     }
 
-    const medicine = await prisma.medicine.update({
+    const updatedMedicine = await prisma.medicine.update({
       where: { id },
       data: updateData,
     });
 
-    return NextResponse.json({ medicine });
+    return NextResponse.json({ medicine: updatedMedicine });
   } catch (error) {
     console.error("Error updating medicine:", error);
     return NextResponse.json(
@@ -192,7 +193,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Soft delete - mark as inactive
-    const medicine = await prisma.medicine.update({
+    await prisma.medicine.update({
       where: { id },
       data: { is_active: false },
     });
@@ -200,6 +201,14 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ message: "Medicine deleted successfully" });
   } catch (error) {
     console.error("Error deleting medicine:", error);
+
+    if ((error as Prisma.PrismaClientKnownRequestError).code === "P2025") {
+      return NextResponse.json(
+        { error: "Medicine not found" },
+        { status: 404 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to delete medicine" },
       { status: 500 }

@@ -17,6 +17,13 @@ interface EmailData {
   text?: string;
 }
 
+interface OrderItem {
+  name: string;
+  quantity: number;
+  price: number;
+  // Add other order item properties as needed
+}
+
 class EmailService {
   private transporter: nodemailer.Transporter;
 
@@ -174,7 +181,7 @@ class EmailService {
     userName: string,
     orderNumber: string,
     status: string,
-    items: any[]
+    items: OrderItem[]
   ) {
     const subject = `Order ${orderNumber} - Status Update`;
     const statusColors: { [key: string]: string } = {

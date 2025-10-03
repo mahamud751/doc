@@ -21,6 +21,14 @@ interface InfiniteScrollProps<T> {
   errorMessage?: string;
 }
 
+interface FetchResult<T> {
+  success: boolean;
+  data?: T[];
+  items?: T[];
+  pagination?: { pages: number };
+  error?: string;
+}
+
 export default function InfiniteScroll<T extends { id: string }>({
   fetchData,
   renderItem,
@@ -38,11 +46,7 @@ export default function InfiniteScroll<T extends { id: string }>({
   const [total, setTotal] = useState(0);
 
   // Initial load
-  useEffect(() => {
-    loadInitialData();
-  }, []);
-
-  const loadInitialData = async () => {
+  const loadInitialData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -57,7 +61,11 @@ export default function InfiniteScroll<T extends { id: string }>({
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchData, limit, errorMessage]);
+
+  useEffect(() => {
+    loadInitialData();
+  }, [loadInitialData]);
 
   const loadMore = useCallback(async () => {
     if (loading || !hasMore) return;
@@ -101,7 +109,7 @@ export default function InfiniteScroll<T extends { id: string }>({
     setHasMore(true);
     setError(null);
     loadInitialData();
-  }, []);
+  }, [loadInitialData]);
 
   if (error) {
     return (
@@ -183,7 +191,7 @@ export default function InfiniteScroll<T extends { id: string }>({
 
 // Hook for managing infinite scroll state
 export function useInfiniteScroll<T>(
-  fetchFunction: (page: number, limit: number) => Promise<any>,
+  fetchFunction: (page: number, limit: number) => Promise<FetchResult<T>>,
   limit: number = 20
 ) {
   const [items, setItems] = useState<T[]>([]);

@@ -1,50 +1,42 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { MessageCircle } from "lucide-react";
+import NavigationHeader from "@/components/NavigationHeader";
+import { Button } from "@/components/ui/Button";
 import { motion } from "framer-motion";
 import {
-  Stethoscope,
-  Phone,
-  MapPin,
-  Clock,
-  Star,
-  ShieldCheck,
-  Heart,
-  Users,
-  Award,
   ArrowRight,
-  Menu,
-  X,
-  Calendar,
-  Video,
-  Pill,
-  FlaskConical,
-  User,
-  Activity,
-  Search,
-  CreditCard,
-  Sparkles,
-  Zap,
-  Globe,
-  TrendingUp,
-  Brain,
-  Eye,
-  Bone,
+  Award,
   Baby,
+  Bone,
+  Brain,
+  Calendar,
+  Clock,
   Droplets,
+  Eye,
+  FlaskConical,
+  Globe,
+  Heart,
+  MapPin,
+  MessageCircle,
+  Phone,
+  Pill,
+  ShieldCheck,
   Smile,
+  Sparkles,
+  Star,
+  Stethoscope,
+  User,
+  Users,
+  Video,
+  Zap,
 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import AnimatedBackground from "@/components/AnimatedBackground";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import NavigationHeader from "@/components/NavigationHeader";
+import { useEffect, useState } from "react";
 
 export default function HomePage() {
   const router = useRouter();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userRole, setUserRole] = useState("");
   const [hoveredFeature, setHoveredFeature] = useState<number | null>(null);

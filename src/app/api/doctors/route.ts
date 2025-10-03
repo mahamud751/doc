@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,21 +9,14 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search");
     const available = searchParams.get("available");
 
-    let whereClause: any = {
-      role: "DOCTOR",
-      is_active: true,
-      is_verified: true,
-      doctor_profile: {
-        verification: {
-          status: "APPROVED",
-        },
-      },
-    };
+    const whereClause: Prisma.UserWhereInput = {};
 
     // Add specialty filter
     if (specialty) {
-      whereClause.doctor_profile.specialties = {
-        has: specialty,
+      whereClause.doctor_profile = {
+        specialties: {
+          has: specialty,
+        },
       };
     }
 
@@ -30,13 +24,23 @@ export async function GET(request: NextRequest) {
     if (search) {
       whereClause.OR = [
         { name: { contains: search, mode: "insensitive" } },
-        { doctor_profile: { specialties: { hasSome: [search] } } },
+        {
+          doctor_profile: {
+            specialties: {
+              hasSome: [search],
+            },
+          },
+        },
       ];
     }
 
     // Add availability filter
-    if (available === "true") {
+    if (available === "true" && whereClause.doctor_profile) {
       whereClause.doctor_profile.is_available_online = true;
+    } else if (available === "true") {
+      whereClause.doctor_profile = {
+        is_available_online: true,
+      };
     }
 
     const doctors = await prisma.user.findMany({

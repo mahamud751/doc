@@ -1,34 +1,23 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useCart } from "@/context/CartContext";
-import {
-  Calendar,
-  Clock,
-  Video,
-  DollarSign,
-  Star,
-  MapPin,
-  User,
-  Phone,
-  Sparkles,
-  Heart,
-  Brain,
-  Bone,
-  Baby,
-  Eye,
-  Stethoscope,
-  Shield,
-  CheckCircle,
-  ArrowRight,
-  Zap,
-  TrendingUp,
-} from "lucide-react";
 import { Button } from "@/components/ui/Button";
+
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  Baby,
+  Bone,
+  Brain,
+  CheckCircle,
+  Eye,
+  Heart,
+  Shield,
+  Star,
+  Stethoscope,
+  Video,
+  Zap,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import NavigationHeader from "@/components/NavigationHeader";
-import CartIcon from "@/components/CartIcon";
+import { useCallback, useEffect, useState } from "react";
 
 interface Doctor {
   id: string;
@@ -73,7 +62,7 @@ interface TimeSlot {
 
 export default function BookAppointmentPage() {
   const router = useRouter();
-  const { cartItems } = useCart();
+
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [selectedDate, setSelectedDate] = useState("");
@@ -81,8 +70,6 @@ export default function BookAppointmentPage() {
   const [symptoms, setSymptoms] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
-  const [authToken, setAuthToken] = useState("");
-  const [userRole, setUserRole] = useState("");
   const [error, setError] = useState("");
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
@@ -115,32 +102,35 @@ export default function BookAppointmentPage() {
   };
 
   // Generate doctor-specific time slots based on availability
-  const generateDoctorTimeSlots = (date: string): TimeSlot[] => {
-    if (!selectedDoctor || !selectedDoctor.next_available_slots) {
-      return generateTimeSlots();
-    }
+  const generateDoctorTimeSlots = useCallback(
+    (date: string): TimeSlot[] => {
+      if (!selectedDoctor || !selectedDoctor.next_available_slots) {
+        return generateTimeSlots();
+      }
 
-    // Filter slots for the selected date
-    const dateSlots = selectedDoctor.next_available_slots.filter((slot) => {
-      const slotDate = new Date(slot.start_time).toISOString().split("T")[0];
-      return slotDate === date;
-    });
+      // Filter slots for the selected date
+      const dateSlots = selectedDoctor.next_available_slots.filter((slot) => {
+        const slotDate = new Date(slot.start_time).toISOString().split("T")[0];
+        return slotDate === date;
+      });
 
-    // If no slots for this date, return empty array
-    if (dateSlots.length === 0) {
-      return [];
-    }
+      // If no slots for this date, return empty array
+      if (dateSlots.length === 0) {
+        return [];
+      }
 
-    // Convert doctor slots to TimeSlot format
-    return dateSlots.map((slot) => ({
-      id: slot.id,
-      start_time: slot.start_time,
-      end_time: slot.end_time,
-      is_available: slot.is_available,
-      time: new Date(slot.start_time).toTimeString().substring(0, 5),
-      available: slot.is_available && !slot.is_booked,
-    }));
-  };
+      // Convert doctor slots to TimeSlot format
+      return dateSlots.map((slot) => ({
+        id: slot.id,
+        start_time: slot.start_time,
+        end_time: slot.end_time,
+        is_available: slot.is_available,
+        time: new Date(slot.start_time).toTimeString().substring(0, 5),
+        available: slot.is_available && !slot.is_booked,
+      }));
+    },
+    [selectedDoctor]
+  );
 
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>(generateTimeSlots());
 
@@ -159,12 +149,9 @@ export default function BookAppointmentPage() {
       return;
     }
 
-    setAuthToken(token);
-    setUserRole(role);
-
     // Fetch real doctors data from API
     fetchDoctors();
-  }, []);
+  }, [router]);
 
   const fetchDoctors = async () => {
     try {
@@ -183,9 +170,11 @@ export default function BookAppointmentPage() {
 
       const data = await response.json();
       setDoctors(data.doctors || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error fetching doctors:", error);
-      setError(error.message || "Failed to load doctors");
+      setError(
+        error instanceof Error ? error.message : "Failed to load doctors"
+      );
     } finally {
       setLoading(false);
     }
@@ -201,7 +190,7 @@ export default function BookAppointmentPage() {
       setSelectedTime("");
       setCurrentStep(2);
     }
-  }, [selectedDate, selectedDoctor]);
+  }, [selectedDate, selectedDoctor, generateDoctorTimeSlots]);
 
   useEffect(() => {
     if (selectedDoctor) {
@@ -249,8 +238,10 @@ export default function BookAppointmentPage() {
       router.push(
         `/patient/appointments?booking=success&appointmentId=${data.appointment.id}`
       );
-    } catch (error: any) {
-      setError(error.message);
+    } catch (error: unknown) {
+      setError(
+        error instanceof Error ? error.message : "An unknown error occurred"
+      );
     } finally {
       setLoading(false);
     }

@@ -1,22 +1,18 @@
-import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
-import Link from "next/link";
 import { motion } from "framer-motion";
-import { usePathname } from "next/navigation";
 import {
-  Stethoscope,
-  Menu,
-  X,
-  Home,
-  Pill,
   Beaker,
-  User,
-  Users,
-  Package,
+  Home,
   LogOut,
+  Menu,
+  Pill,
+  Stethoscope,
+  User,
   UserCircle,
-  ShoppingCart,
+  X,
 } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
 interface NavigationHeaderProps {
   currentPage?: string;
@@ -29,7 +25,6 @@ export default function NavigationHeader({
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userRole, setUserRole] = useState("");
   const [userName, setUserName] = useState("");
-  const pathname = usePathname();
 
   // Don't hide NavigationHeader anymore - show on all pages including admin dashboard
 

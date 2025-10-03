@@ -1,10 +1,10 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Beaker, Clock } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 import { useCart } from "@/context/CartContext";
 import { useToast } from "@/context/ToastContext";
-import { Button } from "@/components/ui/Button";
+import { motion } from "framer-motion";
+import { Beaker } from "lucide-react";
 
 interface LabTest {
   id: string;

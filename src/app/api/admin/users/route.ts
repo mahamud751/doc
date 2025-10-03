@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuthToken } from "@/lib/auth-utils";
 import { hashPassword } from "@/lib/auth";
+import { Prisma, UserRole } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
 
     // Build where clause
-    const where: any = {};
+    const where: Prisma.UserWhereInput = {};
 
     if (search) {
       where.OR = [
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (role) {
-      where.role = role;
+      where.role = role as UserRole;
     }
 
     // Fetch users with pagination
@@ -203,7 +204,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Build update data
-    const updateData: any = {};
+    const updateData: Prisma.UserUpdateInput = {};
     if (name !== undefined) updateData.name = name;
     if (email !== undefined) updateData.email = email;
     if (phone !== undefined) updateData.phone = phone;

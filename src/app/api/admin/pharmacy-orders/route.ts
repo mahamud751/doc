@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
 
+// Define type for JWT payload
+interface JwtPayload {
+  role: string;
+  [key: string]: unknown;
+}
+
 const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
@@ -12,7 +18,7 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
     if (decoded.role !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -39,7 +45,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Transform data to match expected interface
-    const transformedOrders = orders.map((order: any) => ({
+    const transformedOrders = orders.map((order) => ({
       id: order.id,
       patient_id: order.patient_id,
       prescription_id: order.prescription_id,
@@ -81,7 +87,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
     if (decoded.role !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

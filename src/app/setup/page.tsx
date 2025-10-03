@@ -29,8 +29,10 @@ export default function SetupPage() {
       }
 
       setCompleted(true);
-    } catch (error: any) {
-      setError(error.message);
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : "An unknown error occurred"
+      );
     } finally {
       setLoading(false);
     }

@@ -1,29 +1,28 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import ExportButton, { prepareExportData } from "@/components/ExportButton";
 import {
-  Search,
-  Plus,
-  Edit,
-  Trash2,
-  TestTube2,
-  Filter,
-  Clock,
-  AlertTriangle,
-  CheckCircle,
-  Info,
-} from "lucide-react";
-import {
-  ResponsiveCard,
   ResponsiveButton,
+  ResponsiveCard,
+  ResponsiveGrid,
   ResponsiveInput,
   ResponsiveModal,
-  ResponsiveGrid,
 } from "@/components/ResponsiveComponents";
-import ExportButton, { prepareExportData } from "@/components/ExportButton";
+import { motion } from "framer-motion";
+import {
+  AlertTriangle,
+  Clock,
+  Edit,
+  Filter,
+  Info,
+  Plus,
+  Search,
+  TestTube2,
+  Trash2,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
-interface LabTest {
+interface LabTest extends Record<string, unknown> {
   id: string;
   name: string;
   code: string;
@@ -97,11 +96,7 @@ export default function LabTestManagement() {
     "1 week",
   ];
 
-  useEffect(() => {
-    fetchTests();
-  }, [selectedCategory]);
-
-  const fetchTests = async () => {
+  const fetchTests = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("authToken");
@@ -122,12 +117,16 @@ export default function LabTestManagement() {
       } else {
         setError("Failed to fetch lab tests");
       }
-    } catch (err) {
+    } catch (_error: unknown) {
       setError("Error loading lab tests");
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedCategory]);
+
+  useEffect(() => {
+    fetchTests();
+  }, [fetchTests]);
 
   const handleCreateTest = async () => {
     try {
@@ -148,7 +147,7 @@ export default function LabTestManagement() {
       } else {
         setError("Failed to create lab test");
       }
-    } catch (err) {
+    } catch (_error: unknown) {
       setError("Error creating lab test");
     }
   };
@@ -175,7 +174,7 @@ export default function LabTestManagement() {
       } else {
         setError("Failed to update lab test");
       }
-    } catch (err) {
+    } catch (_error: unknown) {
       setError("Error updating lab test");
     }
   };
@@ -197,7 +196,7 @@ export default function LabTestManagement() {
       } else {
         setError("Failed to delete lab test");
       }
-    } catch (err) {
+    } catch (_error: unknown) {
       setError("Error deleting lab test");
     }
   };
@@ -325,9 +324,19 @@ export default function LabTestManagement() {
                   {
                     key: "price",
                     label: "Price",
-                    format: (value: string | number) => {
+                    format: (value: unknown) => {
+                      // Handle edge cases
+                      if (value === undefined || value === null) return "$0.00";
+                      if (typeof value === "boolean")
+                        return value ? "$1.00" : "$0.00";
+
+                      // Convert to number if it's a string
                       const numValue =
-                        typeof value === "string" ? parseFloat(value) : value;
+                        typeof value === "string"
+                          ? parseFloat(value) || 0
+                          : typeof value === "number"
+                          ? value
+                          : 0;
                       return `$${numValue.toFixed(2)}`;
                     },
                   },
@@ -386,8 +395,8 @@ export default function LabTestManagement() {
                   <span className="text-lg font-semibold text-blue-600">
                     $
                     {typeof test.price === "string"
-                      ? parseFloat(test.price).toFixed(2)
-                      : test.price.toFixed(2)}
+                      ? (parseFloat(test.price) || 0).toFixed(2)
+                      : (test.price || 0).toFixed(2)}
                   </span>
                 </div>
 

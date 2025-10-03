@@ -1,35 +1,29 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
-  UserCheck,
-  Edit,
-  Eye,
-  Trash2,
-  Plus,
-  Search,
-  Filter,
-  Stethoscope,
-  MapPin,
-  Phone,
-  Mail,
-  Calendar,
-  Award,
-  Clock,
-  X,
-  Check,
-  Star,
-} from "lucide-react";
-import {
-  ResponsiveCard,
   ResponsiveButton,
+  ResponsiveCard,
+  ResponsiveGrid,
   ResponsiveInput,
   ResponsiveModal,
-  ResponsiveGrid,
 } from "@/components/ResponsiveComponents";
-import ExportButton, { prepareExportData } from "@/components/ExportButton";
-import { formatDate, formatCurrency } from "@/lib/utils";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  Award,
+  Calendar,
+  Check,
+  Clock,
+  Edit,
+  Mail,
+  Phone,
+  Plus,
+  Search,
+  Star,
+  Stethoscope,
+  Trash2,
+  X,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface Doctor {
   id: string;
@@ -56,6 +50,12 @@ interface Doctor {
   };
 }
 
+// Add new interface for recurrence pattern
+interface RecurrencePattern {
+  type: string;
+  days: number[];
+}
+
 // Add new interface for availability slots
 interface AvailabilitySlot {
   id: string;
@@ -65,7 +65,13 @@ interface AvailabilitySlot {
   is_booked: boolean;
   slot_duration: number;
   is_recurring?: boolean;
-  recurrence_pattern?: any;
+  recurrence_pattern?: RecurrencePattern;
+}
+
+// Add new interface for update slot data
+interface UpdateSlotData {
+  slot_id?: string;
+  is_available?: boolean;
 }
 
 // Add new interface for weekly schedule
@@ -138,7 +144,7 @@ export default function DoctorManagement() {
   // Weekly schedule state
   const [showWeeklySchedule, setShowWeeklySchedule] = useState(false);
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklySchedule>({});
-  const [slotDuration, setSlotDuration] = useState(30);
+  const [slotDuration] = useState(30);
 
   // New availability slot form state
   const [newSlotDate, setNewSlotDate] = useState("");
@@ -158,10 +164,6 @@ export default function DoctorManagement() {
     "General Medicine",
   ];
   const languagesList = ["English", "Bengali", "Hindi", "Urdu", "Arabic"];
-
-  useEffect(() => {
-    fetchDoctors();
-  }, []);
 
   const fetchDoctors = async () => {
     try {
@@ -184,12 +186,16 @@ export default function DoctorManagement() {
       } else {
         setError("Failed to fetch doctors");
       }
-    } catch (err) {
+    } catch (error) {
       setError("Error loading doctors");
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchDoctors();
+  }, [fetchDoctors]);
 
   // Add useEffect to refetch when status filter changes
   useEffect(() => {
@@ -215,7 +221,7 @@ export default function DoctorManagement() {
       } else {
         setError("Failed to create doctor");
       }
-    } catch (err) {
+    } catch (error) {
       setError("Error creating doctor");
     }
   };
@@ -242,7 +248,7 @@ export default function DoctorManagement() {
       } else {
         setError("Failed to update doctor");
       }
-    } catch (err) {
+    } catch (error) {
       setError("Error updating doctor");
     }
   };
@@ -264,7 +270,7 @@ export default function DoctorManagement() {
       } else {
         setError("Failed to delete doctor");
       }
-    } catch (err) {
+    } catch (error) {
       setError("Error deleting doctor");
     }
   };
@@ -299,9 +305,9 @@ export default function DoctorManagement() {
         });
 
         const recurringSlots = data.slots.filter(
-          (slot: any) => slot.is_recurring
+          (slot: AvailabilitySlot) => slot.is_recurring
         );
-        recurringSlots.forEach((slot: any) => {
+        recurringSlots.forEach((slot: AvailabilitySlot) => {
           const startDate = new Date(slot.start_time);
           const dayOfWeek = startDate.getDay();
           const startTime = startDate.toTimeString().substring(0, 5);
@@ -321,7 +327,7 @@ export default function DoctorManagement() {
       } else {
         setError("Failed to fetch doctor availability");
       }
-    } catch (err) {
+    } catch (error) {
       setError("Error loading doctor availability");
     } finally {
       setAvailabilityLoading(false);
@@ -336,50 +342,9 @@ export default function DoctorManagement() {
     setShowWeeklySchedule(false);
   };
 
-  const handleCreateAvailabilitySlot = async (slotData: any) => {
-    if (!selectedDoctorForAvailability) return;
-
-    try {
-      const token = localStorage.getItem("authToken");
-      const response = await fetch("/api/admin/doctors/schedule", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          doctor_id: selectedDoctorForAvailability.id,
-          ...slotData,
-        }),
-      });
-
-      if (response.ok) {
-        // Refresh availability slots
-        const refreshResponse = await fetch(
-          `/api/admin/doctors/schedule?doctor_id=${selectedDoctorForAvailability.id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (refreshResponse.ok) {
-          const data = await refreshResponse.json();
-          setAvailabilitySlots(data.slots || []);
-        }
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || "Failed to create availability slot");
-      }
-    } catch (err) {
-      setError("Error creating availability slot");
-    }
-  };
-
   const handleUpdateAvailabilitySlot = async (
     slotId: string,
-    updateData: any
+    updateData: UpdateSlotData
   ) => {
     try {
       const token = localStorage.getItem("authToken");
@@ -540,9 +505,9 @@ export default function DoctorManagement() {
           });
 
           const recurringSlots = data.slots.filter(
-            (slot: any) => slot.is_recurring
+            (slot: AvailabilitySlot) => slot.is_recurring
           );
-          recurringSlots.forEach((slot: any) => {
+          recurringSlots.forEach((slot: AvailabilitySlot) => {
             const startDate = new Date(slot.start_time);
             const dayOfWeek = startDate.getDay();
             const startTime = startDate.toTimeString().substring(0, 5);
@@ -636,9 +601,9 @@ export default function DoctorManagement() {
           });
 
           const recurringSlots = data.slots.filter(
-            (slot: any) => slot.is_recurring
+            (slot: AvailabilitySlot) => slot.is_recurring
           );
-          recurringSlots.forEach((slot: any) => {
+          recurringSlots.forEach((slot: AvailabilitySlot) => {
             const startDate = new Date(slot.start_time);
             const dayOfWeek = startDate.getDay();
             const startTime = startDate.toTimeString().substring(0, 5);
@@ -709,9 +674,9 @@ export default function DoctorManagement() {
             });
 
             const recurringSlots = data.slots.filter(
-              (slot: any) => slot.is_recurring
+              (slot: AvailabilitySlot) => slot.is_recurring
             );
-            recurringSlots.forEach((slot: any) => {
+            recurringSlots.forEach((slot: AvailabilitySlot) => {
               const startDate = new Date(slot.start_time);
               const dayOfWeek = startDate.getDay();
               const startTime = startDate.toTimeString().substring(0, 5);
@@ -872,7 +837,8 @@ export default function DoctorManagement() {
       }
 
       const doctorVerification = verificationData.doctors.find(
-        (doc: any) => doc.doctor_id === currentDoctor.profile?.id
+        (doc: { doctor_id: string }) =>
+          doc.doctor_id === currentDoctor.profile?.id
       );
 
       if (!doctorVerification) {
@@ -1411,7 +1377,7 @@ export default function DoctorManagement() {
           ) : (
             <>
               <div className="text-sm text-gray-600 mb-4">
-                Manage the doctor's available time slots for appointments.
+                Manage the doctor&apos;s available time slots for appointments.
               </div>
 
               {/* View Toggle with enhanced styling */}

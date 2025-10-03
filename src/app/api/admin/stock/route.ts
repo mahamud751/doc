@@ -15,6 +15,12 @@ interface StockTransaction {
   notes?: string;
 }
 
+interface BulkStockUpdate {
+  medicine_id: string;
+  new_stock_quantity: number;
+  notes?: string;
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Verify admin authorization
@@ -31,10 +37,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const medicine_id = searchParams.get("medicine_id");
     const type = searchParams.get("type") || "all";
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
 
     if (type === "summary") {
       // Get stock summary for all medicines
@@ -281,7 +284,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const results = await prisma.$transaction(async (tx) => {
-      const updatePromises = updates.map(async (update: any) => {
+      const updatePromises = updates.map(async (update: BulkStockUpdate) => {
         const { medicine_id, new_stock_quantity, notes } = update;
 
         if (!medicine_id || new_stock_quantity < 0) {

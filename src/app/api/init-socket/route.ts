@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 // This API route can be used to check if Socket.IO is initialized
 // In a custom server environment, Socket.IO would be initialized automatically
@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 let socketInitialized = false;
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   return NextResponse.json({
     success: true,
     socketInitialized,
@@ -15,11 +15,11 @@ export async function GET(request: NextRequest) {
 }
 
 // This POST endpoint could be used to manually initialize Socket.IO in development
-export async function POST(request: NextRequest) {
+export async function POST() {
   // In a real implementation with a custom server, this would initialize Socket.IO
   // For now, we'll just simulate the initialization
   socketInitialized = true;
-  
+
   return NextResponse.json({
     success: true,
     socketInitialized,

@@ -1,32 +1,30 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import ExportButton, { prepareExportData } from "@/components/ExportButton";
 import {
-  Users,
-  Plus,
-  Edit,
-  Trash2,
-  Search,
-  UserCheck,
-  UserX,
-  Eye,
-  Mail,
-  Phone,
-  Calendar,
-  Activity,
-} from "lucide-react";
-import {
+  ResponsiveButton,
   ResponsiveCard,
   ResponsiveGrid,
   ResponsiveInput,
-  ResponsiveButton,
   ResponsiveModal,
 } from "@/components/ResponsiveComponents";
-import ExportButton, { prepareExportData } from "@/components/ExportButton";
 import { formatDate } from "@/lib/utils";
+import { motion } from "framer-motion";
+import {
+  Activity,
+  Calendar,
+  Edit,
+  Mail,
+  Phone,
+  Plus,
+  Trash2,
+  UserCheck,
+  Users,
+  UserX,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
-interface User {
+interface User extends Record<string, unknown> {
   id: string;
   name: string;
   email: string;
@@ -79,13 +77,25 @@ export default function UserManagement() {
 
   const rolesList = ["PATIENT", "DOCTOR", "ADMIN", "PHARMACY", "LAB"];
 
+  const calculateStats = useCallback(() => {
+    const totalUsers = users.length;
+    const activeUsers = users.filter((user) => user.is_active).length;
+    const verifiedUsers = users.filter((user) => user.is_verified).length;
+    const today = new Date().toISOString().split("T")[0];
+    const newUsersToday = users.filter((user) =>
+      user.created_at.startsWith(today)
+    ).length;
+
+    setStats({ totalUsers, activeUsers, verifiedUsers, newUsersToday });
+  }, [users]);
+
   useEffect(() => {
     fetchUsers();
   }, []);
 
   useEffect(() => {
     calculateStats();
-  }, [users]);
+  }, [users, calculateStats]);
 
   const fetchUsers = async () => {
     try {
@@ -104,23 +114,11 @@ export default function UserManagement() {
       } else {
         setError("Failed to fetch users");
       }
-    } catch (err) {
+    } catch (_error: unknown) {
       setError("Error loading users");
     } finally {
       setLoading(false);
     }
-  };
-
-  const calculateStats = () => {
-    const totalUsers = users.length;
-    const activeUsers = users.filter((user) => user.is_active).length;
-    const verifiedUsers = users.filter((user) => user.is_verified).length;
-    const today = new Date().toISOString().split("T")[0];
-    const newUsersToday = users.filter((user) =>
-      user.created_at.startsWith(today)
-    ).length;
-
-    setStats({ totalUsers, activeUsers, verifiedUsers, newUsersToday });
   };
 
   const handleCreateUser = async () => {
@@ -143,7 +141,7 @@ export default function UserManagement() {
         const data = await response.json();
         setError(data.error || "Failed to create user");
       }
-    } catch (err) {
+    } catch (_error: unknown) {
       setError("Error creating user");
     }
   };
@@ -170,7 +168,7 @@ export default function UserManagement() {
       } else {
         setError("Failed to update user");
       }
-    } catch (err) {
+    } catch (_error: unknown) {
       setError("Error updating user");
     }
   };
@@ -192,7 +190,7 @@ export default function UserManagement() {
       } else {
         setError("Failed to delete user");
       }
-    } catch (err) {
+    } catch (_error: unknown) {
       setError("Error deleting user");
     }
   };
@@ -214,7 +212,7 @@ export default function UserManagement() {
       } else {
         setError("Failed to update user status");
       }
-    } catch (err) {
+    } catch (_error: unknown) {
       setError("Error updating user status");
     }
   };
@@ -405,7 +403,7 @@ export default function UserManagement() {
                   {
                     key: "created_at",
                     label: "Created At",
-                    format: (value) => formatDate(value),
+                    format: (value) => formatDate(value as string),
                   },
                 ],
                 "users-export"

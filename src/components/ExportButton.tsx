@@ -1,11 +1,11 @@
 "use client";
 
 import React from "react";
-import { Download, FileText, FileSpreadsheet } from "lucide-react";
+import { FileText, FileSpreadsheet } from "lucide-react";
 
 interface ExportData {
   headers: string[];
-  rows: any[][];
+  rows: string[][];
   filename: string;
 }
 
@@ -207,16 +207,20 @@ export default function ExportButton({
 }
 
 // Utility function to prepare data for export
-export const prepareExportData = (
-  items: any[],
-  columns: { key: string; label: string; format?: (value: any) => string }[],
+export const prepareExportData = <T extends Record<string, unknown>>(
+  items: T[],
+  columns: {
+    key: keyof T;
+    label: string;
+    format?: (value: T[keyof T]) => string;
+  }[],
   filename: string
 ): ExportData => {
   const headers = columns.map((col) => col.label);
   const rows = items.map((item) =>
     columns.map((col) => {
       const value = item[col.key];
-      return col.format ? col.format(value) : value;
+      return col.format ? col.format(value) : String(value);
     })
   );
 

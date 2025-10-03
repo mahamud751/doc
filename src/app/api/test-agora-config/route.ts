@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // Get environment variables
     const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID;
@@ -18,9 +18,9 @@ export async function GET(request: NextRequest) {
       appIdLength: appId ? appId.length : 0,
       certLength: appCertificate ? appCertificate.length : 0,
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: "Failed to check Agora config: " + error.message },
+      { error: "Failed to check Agora config: " + (error as Error).message },
       { status: 500 }
     );
   }

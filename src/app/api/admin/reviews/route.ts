@@ -1,18 +1,19 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { verifyAuthToken } from "@/lib/auth-utils";
+import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type") || "all"; // all, pending, approved, rejected
-    const resource = searchParams.get("resource") || "all"; // all, doctor, medicine
+
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
     const skip = (page - 1) * limit;
 
     // Build where clause
-    const where: any = {};
+    const where: Prisma.ReviewWhereInput = {};
 
     if (type !== "all") {
       where.is_approved = type === "approved";

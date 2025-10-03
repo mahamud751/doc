@@ -1,17 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import {
-  Calendar,
-  Video,
-  User,
-  Phone,
-  CheckCircle,
-  Clock,
-  Plus,
-} from "lucide-react";
-import { Button } from "@/components/ui/Button";
 import AgoraVideoCall from "@/components/AgoraVideoCall";
+import { Button } from "@/components/ui/Button";
+import { Calendar, CheckCircle, Clock, Plus, User, Video } from "lucide-react";
+import { useState } from "react";
 
 interface DemoUser {
   id: string;
@@ -349,8 +341,12 @@ export default function WorkingDemo() {
               </h4>
               <ol className="text-sm text-green-700 space-y-1 list-decimal list-inside">
                 <li>Switch between Patient/Doctor roles using the dropdown</li>
-                <li>Click "Book New Appointment" to create appointments</li>
-                <li>Click "Start Video Call" on confirmed appointments</li>
+                <li>
+                  Click &quot;Book New Appointment&quot; to create appointments
+                </li>
+                <li>
+                  Click &quot;Start Video Call&quot; on confirmed appointments
+                </li>
                 <li>Test video/audio controls during the call</li>
               </ol>
             </div>

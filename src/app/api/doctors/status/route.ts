@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { verifyAuthToken } from "@/lib/auth-utils";
+import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
+import { NextRequest, NextResponse } from "next/server";
 
 // Simple doctor status tracking without Socket.IO
 // This can be enhanced with Socket.IO later
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status") || "all";
 
     // Build where clause
-    const where: any = {
+    const where: Prisma.UserWhereInput = {
       role: "DOCTOR",
       is_verified: true,
     };
@@ -125,7 +126,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update doctor availability status
-    const updateData: any = {};
+    const updateData: Prisma.DoctorProfileUpdateInput = {};
     if (is_available_online !== undefined) {
       updateData.is_available_online = Boolean(is_available_online);
     }
@@ -190,35 +191,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const { activity_type = "heartbeat" } = body;
-
     // Update doctor's last activity timestamp
     await prisma.doctorProfile.update({
       where: { user_id: authResult.user.id },
       data: {
         // We can add a last_activity field to track this
-        // For now, we'll update the updated_at timestamp
-      },
-    });
-
-    // Log activity
-    await prisma.auditLog.create({
-      data: {
-        user_id: authResult.user.id,
-        action: "ACTIVITY",
-        resource: "DoctorActivity",
-        resource_id: authResult.user.id,
-        details: {
-          activity_type,
-          timestamp: new Date(),
-        },
+        // For now, we'll just update the updated_at timestamp
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: "Activity recorded",
+      message: "Activity ping recorded",
       timestamp: new Date(),
     });
   } catch (error) {

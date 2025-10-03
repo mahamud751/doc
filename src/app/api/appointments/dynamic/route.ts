@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma, AppointmentStatus } from "@prisma/client";
 import { verifyJWT } from "@/lib/auth";
 
 const prisma = new PrismaClient();
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status");
     const userRole = searchParams.get("role") || decoded.role;
 
-    let whereClause: any = {};
+    const whereClause: Prisma.AppointmentWhereInput = {};
 
     if (userRole === "PATIENT") {
       whereClause.patient_id = decoded.userId;
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (status) {
-      whereClause.status = status;
+      whereClause.status = status as AppointmentStatus;
     }
 
     const appointments = await prisma.appointment.findMany({

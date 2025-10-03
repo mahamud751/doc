@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 // This endpoint validates the Agora project configuration
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID;
     const appCertificate = process.env.AGORA_APP_CERTIFICATE;
@@ -89,13 +89,13 @@ export async function GET(request: NextRequest) {
       instructions:
         "If you're still getting 'invalid vendor key' errors, your Agora project may not be properly configured on Agora's servers. Please check your Agora dashboard.",
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Project validation error:", error);
 
     return NextResponse.json(
       {
         error: "Failed to validate Agora project",
-        message: error.message || "Unknown error",
+        message: (error as Error).message || "Unknown error",
         solution:
           "Check your environment variables and Agora project configuration",
       },

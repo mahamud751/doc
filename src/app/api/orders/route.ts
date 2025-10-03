@@ -1,6 +1,15 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyAuthToken } from "@/lib/auth-utils";
+import { NextResponse } from "next/server";
+import { PharmacyOrder, LabOrder } from "@prisma/client";
+
+interface LabOrderWithRelations extends LabOrder {
+  package?: {
+    name: string;
+  } | null;
+  test?: {
+    name: string;
+  } | null;
+}
 
 export async function POST(request: Request) {
   try {
@@ -30,9 +39,12 @@ export async function POST(request: Request) {
     }
 
     // Separate items by type
-    const medicineItems = items.filter((item: any) => item.type === "medicine");
+    const medicineItems = items.filter(
+      (item: { type: string }) => item.type === "medicine"
+    );
     const testItems = items.filter(
-      (item: any) => item.type === "test" || item.type === "package"
+      (item: { type: string }) =>
+        item.type === "test" || item.type === "package"
     );
 
     const createdOrders = [];
@@ -43,17 +55,19 @@ export async function POST(request: Request) {
         data: {
           patient_id,
           total_amount: medicineItems.reduce(
-            (sum: number, item: any) =>
+            (sum: number, item: { price: string; quantity: number }) =>
               sum + parseFloat(item.price) * item.quantity,
             0
           ),
           delivery_address,
           status: "PENDING",
-          items: medicineItems.map((item: any) => ({
-            medicine_name: item.name,
-            quantity: item.quantity,
-            price: parseFloat(item.price),
-          })),
+          items: medicineItems.map(
+            (item: { name: string; quantity: number; price: string }) => ({
+              medicine_name: item.name,
+              quantity: item.quantity,
+              price: parseFloat(item.price),
+            })
+          ),
         },
       });
       createdOrders.push({
@@ -101,8 +115,8 @@ export async function GET(request: Request) {
     const orderId = searchParams.get("order_id");
 
     // For now, we'll return a simplified response since we're dealing with two different order types
-    let pharmacyOrders: any[] = [];
-    let labOrders: any[] = [];
+    let pharmacyOrders: PharmacyOrder[] = [];
+    let labOrders: LabOrderWithRelations[] = [];
 
     if (orderId) {
       // Try to find specific order
@@ -215,7 +229,7 @@ export async function GET(request: Request) {
           items = [
             {
               test_name: order.package.name,
-              price: order.total_amount,
+              price: parseFloat(order.total_amount.toString()),
               quantity: 1,
             },
           ];
@@ -224,7 +238,7 @@ export async function GET(request: Request) {
           items = [
             {
               test_name: order.test.name,
-              price: order.total_amount,
+              price: parseFloat(order.total_amount.toString()),
               quantity: 1,
             },
           ];

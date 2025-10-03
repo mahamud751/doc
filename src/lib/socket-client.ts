@@ -1,14 +1,40 @@
-import { socketHealthCheck } from "./socket-health-check";
+// Define specific event data types
+interface MessageData {
+  id: string;
+  fromUserId: string;
+  toUserId: string;
+  appointmentId: string;
+  message: string;
+  timestamp: string;
+}
 
-// Mock Socket type for when WebSocket is not available
+interface OrderUpdateData {
+  orderId: string;
+  status: string;
+  // Add other order update properties as needed
+}
+
+interface DoctorStatusData {
+  doctorId: string;
+  status: "online" | "busy" | "away";
+  // Add other doctor status properties as needed
+}
+
+interface HeartbeatData {
+  timestamp: number;
+}
+
 interface MockSocket {
   connected: boolean;
-  on(event: string, callback: (...args: any[]) => void): void;
-  off(event: string, callback?: (...args: any[]) => void): void;
-  emit(event: string, data: any): void;
+  on(event: string, callback: (...args: unknown[]) => void): void;
+  off(event: string, callback?: (...args: unknown[]) => void): void;
+  emit(event: string, data: unknown): void;
   close(): void;
   disconnect(): void;
 }
+
+// Define the callback type with specific event data
+type SocketCallback<T = unknown> = (data: T) => void;
 
 class SocketClient {
   private static instance: SocketClient;
@@ -20,8 +46,7 @@ class SocketClient {
   private maxReconnectDelay: number = 10000;
   private isConnecting: boolean = false;
   private connectionTimeout: NodeJS.Timeout | null = null;
-  private eventListeners: Map<string, Array<(...args: any[]) => void>> =
-    new Map();
+  private eventListeners: Map<string, SocketCallback[]> = new Map();
   private mockConnectionInterval: NodeJS.Timeout | null = null;
   private mockMode: boolean = false;
 
@@ -70,7 +95,7 @@ class SocketClient {
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("socketConnected"));
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error initializing socket connection:", error);
       this.isConnecting = false;
       this.setupMockSocket();
@@ -89,13 +114,13 @@ class SocketClient {
     // Create a mock socket object
     this.socket = {
       connected: true,
-      on: (event: string, callback: (...args: any[]) => void) => {
+      on: (event: string, callback: SocketCallback) => {
         if (!this.eventListeners.has(event)) {
           this.eventListeners.set(event, []);
         }
         this.eventListeners.get(event)?.push(callback);
       },
-      off: (event: string, callback?: (...args: any[]) => void) => {
+      off: (event: string, callback?: SocketCallback) => {
         if (callback) {
           const listeners = this.eventListeners.get(event);
           if (listeners) {
@@ -108,7 +133,7 @@ class SocketClient {
           this.eventListeners.delete(event);
         }
       },
-      emit: (event: string, data: any) => {
+      emit: (event: string, data: unknown) => {
         console.log(`[MOCK SOCKET] Emitting event: ${event}`, data);
         // In mock mode, we just log the events instead of sending them over WebSocket
       },
@@ -137,11 +162,11 @@ class SocketClient {
     // Simulate periodic heartbeat events
     this.mockConnectionInterval = setInterval(() => {
       // Emit mock heartbeat events
-      this.emitMockEvent("heartbeat", {});
+      this.emitMockEvent<HeartbeatData>("heartbeat", { timestamp: Date.now() });
     }, 30000);
   }
 
-  private emitMockEvent(event: string, data: any): void {
+  private emitMockEvent<T>(event: string, data: T): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       listeners.forEach((callback) => {
@@ -155,32 +180,35 @@ class SocketClient {
   }
 
   // Method to simulate receiving a message event
-  public simulateMessage(data: any): void {
-    this.emitMockEvent("new-message", data);
+  public simulateMessage(data: MessageData): void {
+    this.emitMockEvent<MessageData>("new-message", data);
   }
 
   // Method to simulate receiving an order update event
-  public simulateOrderUpdate(data: any): void {
-    this.emitMockEvent("order-update", data);
+  public simulateOrderUpdate(data: OrderUpdateData): void {
+    this.emitMockEvent<OrderUpdateData>("order-update", data);
   }
 
   // Method to simulate receiving a doctor status change event
-  public simulateDoctorStatusChange(data: any): void {
-    this.emitMockEvent("doctor-status-change", data);
+  public simulateDoctorStatusChange(data: DoctorStatusData): void {
+    this.emitMockEvent<DoctorStatusData>("doctor-status-change", data);
   }
 
-  public on(event: string, callback: (...args: any[]) => void): void {
+  public on<T = unknown>(event: string, callback: SocketCallback<T>): void {
     if (!this.socket) {
       this.setupMockSocket();
     }
-    this.socket?.on(event, callback);
+    this.socket?.on(event, callback as unknown as (...args: unknown[]) => void);
   }
 
-  public off(event: string, callback?: (...args: any[]) => void): void {
-    this.socket?.off(event, callback);
+  public off<T = unknown>(event: string, callback?: SocketCallback<T>): void {
+    this.socket?.off(
+      event,
+      callback as unknown as ((...args: unknown[]) => void) | undefined
+    );
   }
 
-  public emit(event: string, data: any): boolean {
+  public emit<T = unknown>(event: string, data: T): boolean {
     if (!this.socket) {
       this.setupMockSocket();
     }
@@ -215,7 +243,7 @@ class SocketClient {
   }
 
   public sendHeartbeat(): boolean {
-    return this.emit("heartbeat", {});
+    return this.emit<HeartbeatData>("heartbeat", { timestamp: Date.now() });
   }
 
   public disconnect(): void {

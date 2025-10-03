@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 // This endpoint tests if we can access Agora services
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID;
 
@@ -44,13 +44,13 @@ export async function GET(request: NextRequest) {
       appId: `${appId.substring(0, 8)}...`,
       status: "success",
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Connection test error:", error);
 
     return NextResponse.json(
       {
         error: "Failed to test Agora connection",
-        message: error.message || "Unknown error",
+        message: (error as Error).message || "Unknown error",
         status: "error",
       },
       { status: 500 }

@@ -92,8 +92,6 @@ export default function CheckoutPage() {
         throw new Error(errorData.error || "Failed to create order");
       }
 
-      const data = await response.json();
-
       // Clear cart after successful checkout
       clearCart();
 
@@ -102,9 +100,12 @@ export default function CheckoutPage() {
 
       // Redirect to patient dashboard
       router.push("/patient/dashboard");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Checkout error:", error);
-      addToast(error.message || "Failed to place order", "error");
+      addToast(
+        error instanceof Error ? error.message : "Failed to place order",
+        "error"
+      );
     } finally {
       setLoading(false);
     }

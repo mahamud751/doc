@@ -17,7 +17,6 @@ import {
   Shield,
   Clock,
   Star,
-  Users,
   Pill,
   FileText,
   Phone,
@@ -198,83 +197,37 @@ export default function LandingPage() {
       {/* Stats Section */}
       <section className="py-20 bg-blue-600">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             <div>
-              <div className="text-4xl font-bold text-white mb-2">1000+</div>
-              <div className="text-blue-100">Verified Doctors</div>
+              <div className="text-4xl font-bold text-white mb-2">10K+</div>
+              <div className="text-blue-100">Patients Served</div>
             </div>
             <div>
-              <div className="text-4xl font-bold text-white mb-2">50K+</div>
-              <div className="text-blue-100">Happy Patients</div>
+              <div className="text-4xl font-bold text-white mb-2">100+</div>
+              <div className="text-blue-100">Specialist Doctors</div>
             </div>
             <div>
-              <div className="text-4xl font-bold text-white mb-2">100K+</div>
-              <div className="text-blue-100">Consultations</div>
+              <div className="text-4xl font-bold text-white mb-2">99%</div>
+              <div className="text-blue-100">Patient Satisfaction</div>
             </div>
             <div>
-              <div className="text-4xl font-bold text-white mb-2">4.9★</div>
-              <div className="text-blue-100">Average Rating</div>
+              <div className="text-4xl font-bold text-white mb-2">24/7</div>
+              <div className="text-blue-100">Support Available</div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* How It Works */}
+      {/* Testimonials Section */}
       <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              How It Works
+              What Our Users Say
             </h2>
             <p className="text-xl text-gray-600">
-              Get healthcare in 3 simple steps
+              Hear from patients and doctors who trust MediConnect
             </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-            <div className="text-center">
-              <div className="bg-blue-600 text-white rounded-full w-16 h-16 flex items-center justify-center text-2xl font-bold mx-auto mb-6">
-                1
-              </div>
-              <h3 className="text-xl font-semibold mb-4">Choose Your Doctor</h3>
-              <p className="text-gray-600">
-                Browse through our verified doctors, check their profiles,
-                ratings, and availability
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="bg-blue-600 text-white rounded-full w-16 h-16 flex items-center justify-center text-2xl font-bold mx-auto mb-6">
-                2
-              </div>
-              <h3 className="text-xl font-semibold mb-4">Book & Pay</h3>
-              <p className="text-gray-600">
-                Select your preferred time slot, make secure payment, and
-                receive confirmation
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="bg-blue-600 text-white rounded-full w-16 h-16 flex items-center justify-center text-2xl font-bold mx-auto mb-6">
-                3
-              </div>
-              <h3 className="text-xl font-semibold mb-4">Get Consultation</h3>
-              <p className="text-gray-600">
-                Join the video call, get diagnosed, receive prescriptions, and
-                follow-up care
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              What Our Patients Say
-            </h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -289,9 +242,9 @@ export default function LandingPage() {
                   ))}
                 </div>
                 <p className="text-gray-600 mb-4">
-                  "Excellent service! The doctor was very professional and the
-                  video quality was perfect. Got my prescription within
-                  minutes."
+                  &quot;Excellent service! The doctor was very professional and
+                  the video quality was perfect. Got my prescription within
+                  minutes.&quot;
                 </p>
                 <div className="font-semibold">Sarah Ahmed</div>
                 <div className="text-sm text-gray-500">Patient</div>
@@ -309,8 +262,8 @@ export default function LandingPage() {
                   ))}
                 </div>
                 <p className="text-gray-600 mb-4">
-                  "MediConnect saved me hours of waiting. The booking process is
-                  smooth and the doctors are highly qualified."
+                  &quot;MediConnect saved me hours of waiting. The booking
+                  process is smooth and the doctors are highly qualified.&quot;
                 </p>
                 <div className="font-semibold">Mohammad Rahman</div>
                 <div className="text-sm text-gray-500">Patient</div>
@@ -328,8 +281,9 @@ export default function LandingPage() {
                   ))}
                 </div>
                 <p className="text-gray-600 mb-4">
-                  "As a doctor, this platform helps me reach more patients
-                  efficiently. The interface is intuitive and feature-rich."
+                  &quot;As a doctor, this platform helps me reach more patients
+                  efficiently. The interface is intuitive and
+                  feature-rich.&quot;
                 </p>
                 <div className="font-semibold">Dr. Fatima Khatun</div>
                 <div className="text-sm text-gray-500">Cardiologist</div>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuthToken } from "@/lib/auth-utils";
-import { LabTest } from "@prisma/client";
+import { LabTest, Prisma } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search");
     const category = searchParams.get("category");
 
-    let whereClause: any = {
+    const whereClause: Prisma.LabPackageWhereInput = {
       is_active: true,
     };
 
@@ -234,7 +234,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Build update object
-    const dataToUpdate: any = {};
+    const dataToUpdate: Prisma.LabPackageUpdateInput = {};
 
     if (updateData.name !== undefined) dataToUpdate.name = updateData.name;
     if (updateData.description !== undefined)

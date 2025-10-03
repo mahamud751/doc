@@ -1,30 +1,28 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import ExportButton, { prepareExportData } from "@/components/ExportButton";
 import {
-  TestTube,
-  Plus,
-  Edit,
-  Trash2,
-  Search,
-  Eye,
-  DollarSign,
-  Activity,
-  Home,
-  Clock,
-} from "lucide-react";
-import {
+  ResponsiveButton,
   ResponsiveCard,
   ResponsiveGrid,
   ResponsiveInput,
-  ResponsiveButton,
   ResponsiveModal,
 } from "@/components/ResponsiveComponents";
-import ExportButton, { prepareExportData } from "@/components/ExportButton";
-import { formatDate, formatCurrency } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
+import { motion } from "framer-motion";
+import {
+  Activity,
+  Clock,
+  DollarSign,
+  Edit,
+  Home,
+  Plus,
+  TestTube,
+  Trash2,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 
-interface LabPackage {
+type LabPackage = {
   id: string;
   name: string;
   description?: string;
@@ -38,7 +36,7 @@ interface LabPackage {
   is_home_collection: boolean;
   is_active: boolean;
   created_at: string;
-}
+} & Record<string, unknown>;
 
 interface LabPackageFormData {
   name: string;
@@ -160,7 +158,10 @@ export default function LabPackageManagement() {
     const homeCollectionPackages = labPackages.filter(
       (pkg) => pkg.is_home_collection
     ).length;
-    const totalValue = labPackages.reduce((sum, pkg) => sum + pkg.price, 0);
+    const totalValue = labPackages.reduce(
+      (sum, pkg) => sum + Number(pkg.price || 0),
+      0
+    );
 
     setStats({
       totalPackages,
@@ -461,12 +462,13 @@ export default function LabPackageManagement() {
                   {
                     key: "price",
                     label: "Price",
-                    format: (value) => formatCurrency(value),
+                    format: (value) => formatCurrency(Number(value || 0)),
                   },
                   {
                     key: "tests_included",
                     label: "Tests Count",
-                    format: (value) => value.length,
+                    format: (value) =>
+                      Array.isArray(value) ? value.length.toString() : "0",
                   },
                   {
                     key: "is_active",
@@ -553,7 +555,7 @@ export default function LabPackageManagement() {
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-green-600 text-lg">
                     <DollarSign className="w-4 h-4 inline mr-1" />
-                    {formatCurrency(labPackage.price)}
+                    {formatCurrency(Number(labPackage.price || 0))}
                   </span>
                   {labPackage.preparation_required && (
                     <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">

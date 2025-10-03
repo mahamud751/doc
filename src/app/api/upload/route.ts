@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
+import { writeFile, mkdir, unlink } from "fs/promises";
 import { join } from "path";
 import { v4 as uuidv4 } from "uuid";
 import { verifyAuthToken } from "@/lib/auth-utils";
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     // Create directory if it doesn't exist
     try {
       await mkdir(uploadDir, { recursive: true });
-    } catch (error) {
+    } catch {
       // Directory might already exist
     }
 
@@ -119,13 +119,12 @@ export async function DELETE(request: NextRequest) {
     const fullPath = join(process.cwd(), "public", filePath);
 
     try {
-      const fs = require("fs").promises;
-      await fs.unlink(fullPath);
+      await unlink(fullPath);
       return NextResponse.json({
         success: true,
         message: "File deleted successfully",
       });
-    } catch (error) {
+    } catch {
       return NextResponse.json(
         { error: "File not found or already deleted" },
         { status: 404 }

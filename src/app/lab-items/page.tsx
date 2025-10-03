@@ -1,18 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  Search,
-  Filter,
-  Beaker,
-  Package as PackageIcon,
-  TestTube,
-  FlaskConical,
-} from "lucide-react";
-import { motion } from "framer-motion";
 import NavigationHeader from "@/components/NavigationHeader";
-import CartIcon from "@/components/CartIcon";
 import { useCart } from "@/context/CartContext";
+import { motion } from "framer-motion";
+import {
+  Beaker,
+  Filter,
+  FlaskConical,
+  Package as PackageIcon,
+  Search,
+  TestTube,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface LabTest {
   id: string;
@@ -27,7 +26,7 @@ interface LabTest {
   reporting_time: string;
   normal_range: string;
   is_active: boolean;
-  created_at: Date;
+  created_at: string;
 }
 
 interface LabPackage {
@@ -108,9 +107,11 @@ export default function LabItemsPage() {
       } else {
         throw new Error("Failed to fetch lab tests");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error fetching lab items:", error);
-      setError(error.message || "Failed to load lab items");
+      setError(
+        error instanceof Error ? error.message : "Failed to load lab items"
+      );
     } finally {
       setLoading(false);
     }

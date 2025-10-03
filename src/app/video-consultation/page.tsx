@@ -48,10 +48,10 @@ export default function VideoConsultationPage() {
     }
 
     setAuthToken(token);
-    setUserRole(role || "");
+    setUserRole((role || "").toLowerCase());
     setUserId(id || "");
     fetchAppointments(token);
-  }, []);
+  }, [router]);
 
   const fetchAppointments = async (token: string) => {
     try {
@@ -104,6 +104,16 @@ export default function VideoConsultationPage() {
     router.push(`/doctor/prescriptions/create/${activeCall?.id}`);
   };
 
+  const getStatusClass = (status: string) => {
+    if (status === "CONFIRMED") {
+      return "bg-green-100 text-green-800";
+    } else if (status === "IN_PROGRESS") {
+      return "bg-blue-100 text-blue-800";
+    } else {
+      return "bg-yellow-100 text-yellow-800";
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -123,7 +133,7 @@ export default function VideoConsultationPage() {
         authToken={authToken}
         onCallEnd={endVideoCall}
         onPrescriptionCreate={
-          userRole === "DOCTOR" ? handlePrescriptionCreate : undefined
+          userRole === "doctor" ? handlePrescriptionCreate : undefined
         }
       />
     );
@@ -160,10 +170,10 @@ export default function VideoConsultationPage() {
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           <div className="p-6 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">
-              Today's Appointments
+              Today&apos;s Appointments
             </h2>
             <p className="text-sm text-gray-600">
-              Click "Join Call" to start your video consultation
+              Click &quot;Join Call&quot; to start your video consultation
             </p>
           </div>
 
@@ -174,7 +184,7 @@ export default function VideoConsultationPage() {
                 No Video Calls Available
               </h3>
               <p className="text-gray-600 mb-6">
-                You don't have any video consultations scheduled for today.
+                You do not have any video consultations scheduled for today.
               </p>
               <div className="space-y-3">
                 <Button
@@ -205,8 +215,8 @@ export default function VideoConsultationPage() {
                       </div>
                       <div>
                         <h3 className="text-lg font-medium text-gray-900">
-                          {userRole === "PATIENT"
-                            ? `Dr. ${appointment.doctor.name}`
+                          {userRole === "patient"
+                            ? "Dr. " + appointment.doctor.name
                             : appointment.patient.name}
                         </h3>
                         <p className="text-sm text-gray-600">
@@ -215,13 +225,9 @@ export default function VideoConsultationPage() {
                         </p>
                         <div className="flex items-center mt-1">
                           <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              appointment.status === "CONFIRMED"
-                                ? "bg-green-100 text-green-800"
-                                : appointment.status === "IN_PROGRESS"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-yellow-100 text-yellow-800"
-                            }`}
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(
+                              appointment.status
+                            )}`}
                           >
                             {appointment.status}
                           </span>
@@ -232,7 +238,7 @@ export default function VideoConsultationPage() {
                     <div className="flex items-center space-x-3">
                       <div className="text-right text-sm text-gray-600">
                         <p>
-                          {userRole === "PATIENT"
+                          {userRole === "patient"
                             ? "Consultation"
                             : "Patient Visit"}
                         </p>

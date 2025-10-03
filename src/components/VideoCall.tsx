@@ -6,7 +6,6 @@ import {
   VideoOff,
   Mic,
   MicOff,
-  Phone,
   PhoneOff,
   Monitor,
   Settings,
@@ -15,14 +14,12 @@ import { Button } from "@/components/ui/Button";
 
 interface VideoCallProps {
   channelName: string;
-  appointmentId: string;
   userRole: "patient" | "doctor";
   onCallEnd: () => void;
 }
 
 export default function VideoCall({
   channelName,
-  appointmentId,
   userRole,
   onCallEnd,
 }: VideoCallProps) {
@@ -38,7 +35,7 @@ export default function VideoCall({
   const callStartTime = useRef<number>(0);
 
   // Mock Agora client - In real implementation, initialize Agora SDK here
-  const agoraClient = useRef<any>(null);
+  const agoraClient = useRef<unknown>(null);
 
   useEffect(() => {
     // Initialize Agora SDK
@@ -46,8 +43,9 @@ export default function VideoCall({
 
     return () => {
       // Cleanup
-      if (agoraClient.current) {
-        agoraClient.current.leave();
+      const currentClient = agoraClient.current;
+      if (currentClient) {
+        (currentClient as { leave: () => void }).leave();
       }
     };
   }, [channelName]);
@@ -109,8 +107,9 @@ export default function VideoCall({
 
   const endCall = () => {
     setIsCallActive(false);
-    if (agoraClient.current) {
-      agoraClient.current.leave();
+    const currentClient = agoraClient.current;
+    if (currentClient) {
+      (currentClient as { leave: () => void }).leave();
     }
     onCallEnd();
   };

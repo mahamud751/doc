@@ -1,14 +1,20 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Check, X, FileText, Calendar, User, Mail, Phone } from "lucide-react";
 import {
-  ResponsiveCard,
   ResponsiveButton,
+  ResponsiveCard,
   ResponsiveModal,
 } from "@/components/ResponsiveComponents";
 import { formatDate } from "@/lib/utils";
+import { motion } from "framer-motion";
+import { Calendar, FileText, Mail, Phone, User } from "lucide-react";
+import React, { useEffect, useState } from "react";
+
+interface Document {
+  name: string;
+  url: string;
+  type: string;
+}
 
 interface PendingDoctor {
   id: string;
@@ -21,7 +27,7 @@ interface PendingDoctor {
   experience_years: number;
   consultation_fee: number;
   medical_license: string;
-  documents: any[];
+  documents: Document[];
   bio: string;
   submitted_at: string;
   status: string;

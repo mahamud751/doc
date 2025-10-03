@@ -1,33 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  Calendar,
-  Clock,
-  Video,
-  User,
-  Phone,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Plus,
-  Sparkles,
-  Zap,
-  Shield,
-  Heart,
-  Stethoscope,
-  ArrowRight,
-  MapPin,
-  MessageCircle,
-  FileText,
-  Star,
-  Eye,
-} from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  ArrowRight,
+  Calendar,
+  CheckCircle,
+  Eye,
+  Heart,
+  Plus,
+  Video,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState } from "react";
 
 interface Appointment {
   id: string;
@@ -54,25 +40,20 @@ export default function PatientAppointments() {
   const router = useRouter();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [authToken, setAuthToken] = useState("");
-  const [userId, setUserId] = useState("");
-  const [activeCall, setActiveCall] = useState<Appointment | null>(null);
-  const [error, setError] = useState("");
+  const [error] = useState("");
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
   useEffect(() => {
     // Check authentication
     const token = localStorage.getItem("authToken");
     const role = localStorage.getItem("userRole");
-    const id = localStorage.getItem("userId");
 
     if (!token || role !== "PATIENT") {
       router.push("/auth/login");
       return;
     }
 
-    setAuthToken(token);
-    setUserId(id || "");
+    // We don't need to store token and id in state since we're not using them
     fetchAppointments(token);
 
     // Check for successful booking
@@ -82,7 +63,7 @@ export default function PatientAppointments() {
         window.history.replaceState({}, "", "/patient/appointments");
       }, 3000);
     }
-  }, []);
+  }, [router]);
 
   const fetchAppointments = async (token: string) => {
     try {
@@ -182,79 +163,6 @@ export default function PatientAppointments() {
         `/video-call?token=${appointment.meeting_token}&appointmentId=${appointment.id}`
       );
     }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "CONFIRMED":
-        return <CheckCircle className="w-5 h-5 text-green-500" />;
-      case "PENDING":
-        return <AlertCircle className="w-5 h-5 text-yellow-500" />;
-      case "COMPLETED":
-        return <CheckCircle className="w-5 h-5 text-blue-500" />;
-      case "CANCELLED":
-        return <XCircle className="w-5 h-5 text-red-500" />;
-      case "IN_PROGRESS":
-        return <Video className="w-5 h-5 text-purple-500 animate-pulse" />;
-      default:
-        return <Clock className="w-5 h-5 text-gray-500" />;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "CONFIRMED":
-        return "bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border border-green-200";
-      case "PENDING":
-        return "bg-gradient-to-r from-yellow-100 to-amber-100 text-yellow-800 border border-yellow-200";
-      case "COMPLETED":
-        return "bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 border border-blue-200";
-      case "CANCELLED":
-        return "bg-gradient-to-r from-red-100 to-pink-100 text-red-800 border border-red-200";
-      case "IN_PROGRESS":
-        return "bg-gradient-to-r from-purple-100 to-violet-100 text-purple-800 border border-purple-200 animate-pulse";
-      default:
-        return "bg-gradient-to-r from-gray-100 to-slate-100 text-gray-800 border border-gray-200";
-    }
-  };
-
-  const formatDateTime = (dateTime: string) => {
-    const date = new Date(dateTime);
-    return {
-      date: date.toLocaleDateString("en-US", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }),
-      time: date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      relative: getRelativeTime(date),
-    };
-  };
-
-  const getRelativeTime = (date: Date) => {
-    const now = new Date();
-    const diff = date.getTime() - now.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-
-    if (hours < 0) return "Past";
-    if (hours < 1) return "Within hour";
-    if (hours < 24) return "Today";
-    if (hours < 48) return "Tomorrow";
-    return "Upcoming";
-  };
-
-  const endVideoCall = () => {
-    if (activeCall) {
-      updateAppointmentStatus(activeCall.id, "COMPLETED");
-    }
-    setActiveCall(null);
-  };
-
-  const updateAppointmentStatus = (appointmentId: string, status: string) => {
-    setAppointments((prev) =>
-      prev.map((apt) => (apt.id === appointmentId ? { ...apt, status } : apt))
-    );
   };
 
   if (loading) {
@@ -436,8 +344,8 @@ export default function PatientAppointments() {
                   No appointments scheduled
                 </h3>
                 <p className="text-gray-600 mb-8 max-w-md mx-auto">
-                  You don't have any appointments scheduled yet. Book your first
-                  consultation with our expert doctors.
+                  You don&apos;t have any appointments scheduled yet. Book your
+                  first consultation with our expert doctors.
                 </p>
                 <motion.div
                   whileHover={{ scale: 1.05 }}
@@ -454,13 +362,8 @@ export default function PatientAppointments() {
             ) : (
               <div className="divide-y divide-gray-200/50">
                 {appointments.map((appointment, index) => {
-                  const { date, time, relative } = formatDateTime(
-                    appointment.scheduled_at
-                  );
                   const isUpcoming =
                     new Date(appointment.scheduled_at) > new Date();
-                  const canStartCall =
-                    appointment.status === "CONFIRMED" && isUpcoming;
 
                   return (
                     <motion.div

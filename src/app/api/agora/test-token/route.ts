@@ -111,16 +111,19 @@ export async function GET(request: NextRequest) {
       expires: expirationTimeInSeconds,
       message: "Test token generated successfully",
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Test token generation error:", error);
-    console.error("Error stack:", error.stack);
+    console.error("Error stack:", (error as Error).stack);
 
     // Provide detailed error information
     return NextResponse.json(
       {
         error: "Failed to generate test token",
-        message: error.message || "Unknown error",
-        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+        message: (error as Error).message || "Unknown error",
+        stack:
+          process.env.NODE_ENV === "development"
+            ? (error as Error).stack
+            : undefined,
       },
       { status: 500 }
     );

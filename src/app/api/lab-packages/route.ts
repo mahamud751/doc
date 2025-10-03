@@ -1,6 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { verifyAuthToken } from "@/lib/auth-utils";
+import { prisma } from "@/lib/prisma";
+import { Prisma, User } from "@prisma/client";
+import { NextRequest, NextResponse } from "next/server";
+
+interface AuthResult {
+  success: boolean;
+  user?: User;
+  error?: string;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,7 +18,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "20");
     const skip = (page - 1) * limit;
 
-    let whereClause: any = {
+    const whereClause: Prisma.LabPackageWhereInput = {
       is_active: true,
     };
 
@@ -74,7 +81,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Verify admin authorization
-    const authResult = await verifyAuthToken(request);
+    const authResult = (await verifyAuthToken(request)) as AuthResult;
     if (!authResult.success || !authResult.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -200,26 +207,21 @@ export async function POST(request: NextRequest) {
         resource: "LabPackage",
         resource_id: labPackage.id,
         details: {
-          package_name: name,
-          category,
-          price: calculatedPrice,
-          tests_count: test_ids.length,
+          name: labPackage.name,
+          category: labPackage.category,
+          price: labPackage.price,
         },
       },
     });
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Lab package created successfully",
-        package: transformedPackage,
-      },
-      { status: 201 }
-    );
+    return NextResponse.json({
+      success: true,
+      package: transformedPackage,
+    });
   } catch (error) {
     console.error("Error creating lab package:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Failed to create lab package" },
       { status: 500 }
     );
   }
@@ -251,7 +253,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Build update object
-    const dataToUpdate: any = {};
+    const dataToUpdate: Prisma.LabPackageUpdateInput = {};
 
     if (updateData.name !== undefined) dataToUpdate.name = updateData.name;
     if (updateData.description !== undefined)

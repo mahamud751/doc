@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -8,7 +8,6 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search") || "";
     const specialty = searchParams.get("specialty") || "";
-    const location = searchParams.get("location") || "";
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
     const sortBy = searchParams.get("sortBy") || "rating";
@@ -17,7 +16,7 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
 
     // Build search conditions
-    const whereConditions: any = {
+    const whereConditions: Prisma.UserWhereInput = {
       role: "DOCTOR",
       is_active: true,
       doctor_profile: {
@@ -48,12 +47,17 @@ export async function GET(request: NextRequest) {
 
     // Filter by specialty
     if (specialty) {
-      whereConditions.doctor_profile = {
-        ...whereConditions.doctor_profile,
-        specialties: {
+      if (whereConditions.doctor_profile) {
+        whereConditions.doctor_profile.specialties = {
           has: specialty,
-        },
-      };
+        };
+      } else {
+        whereConditions.doctor_profile = {
+          specialties: {
+            has: specialty,
+          },
+        };
+      }
     }
 
     // Search doctors
@@ -91,10 +95,14 @@ export async function GET(request: NextRequest) {
       take: limit,
       orderBy:
         sortBy === "rating"
-          ? { doctor_profile: { rating: sortOrder as any } }
+          ? { doctor_profile: { rating: sortOrder as Prisma.SortOrder } }
           : sortBy === "fee"
-          ? { doctor_profile: { consultation_fee: sortOrder as any } }
-          : { name: sortOrder as any },
+          ? {
+              doctor_profile: {
+                consultation_fee: sortOrder as Prisma.SortOrder,
+              },
+            }
+          : { name: sortOrder as Prisma.SortOrder },
     });
 
     // Get total count for pagination
@@ -144,7 +152,7 @@ export async function GET(request: NextRequest) {
 }
 
 // Get specialties for filter dropdown
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     const specialties = await prisma.user.findMany({
       where: {

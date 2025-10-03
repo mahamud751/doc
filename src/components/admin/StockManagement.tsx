@@ -1,30 +1,26 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import ExportButton, { prepareExportData } from "@/components/ExportButton";
 import {
-  Package,
-  AlertTriangle,
-  TrendingUp,
-  Plus,
-  Edit,
-  Search,
-  Filter,
-  RefreshCw,
-  BarChart3,
-  Pill,
-  ShoppingCart,
-  DollarSign,
-} from "lucide-react";
-import {
-  ResponsiveCard,
   ResponsiveButton,
+  ResponsiveCard,
   ResponsiveInput,
   ResponsiveModal,
-  ResponsiveGrid,
 } from "@/components/ResponsiveComponents";
-import ExportButton, { prepareExportData } from "@/components/ExportButton";
-import { formatDate, formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import { motion } from "framer-motion";
+import {
+  AlertTriangle,
+  BarChart3,
+  DollarSign,
+  Edit,
+  Package,
+  Pill,
+  Plus,
+  RefreshCw,
+  ShoppingCart,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 interface Medicine {
   id: string;
@@ -40,6 +36,7 @@ interface Medicine {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  [key: string]: unknown; // Add index signature to make it compatible with Record<string, unknown>
 }
 
 interface StockTransaction {
@@ -71,7 +68,6 @@ export default function StockManagement() {
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [showModal, setShowModal] = useState(false);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [selectedMedicine, setSelectedMedicine] = useState<Medicine | null>(
     null
@@ -91,11 +87,32 @@ export default function StockManagement() {
     totalStockValue: 0,
   });
 
+  const calculateStats = useCallback(() => {
+    const totalItems = medicines.length;
+    const lowStockItems = medicines.filter(
+      (m) => m.stock_quantity < 50 && m.stock_quantity >= 10
+    ).length;
+    const criticalStockItems = medicines.filter(
+      (m) => m.stock_quantity < 10
+    ).length;
+    const totalStockValue = medicines.reduce(
+      (sum, m) => sum + Number(m.unit_price) * m.stock_quantity,
+      0
+    );
+
+    setStats({
+      totalItems,
+      lowStockItems,
+      criticalStockItems,
+      totalStockValue,
+    });
+  }, [medicines]);
+
   useEffect(() => {
     fetchMedicines();
     fetchTransactions();
     calculateStats();
-  }, []);
+  }, [calculateStats]);
 
   const fetchMedicines = async () => {
     try {
@@ -114,7 +131,7 @@ export default function StockManagement() {
       } else {
         setError("Failed to fetch medicines");
       }
-    } catch (err) {
+    } catch (_error: unknown) {
       setError("Error loading medicines");
     } finally {
       setLoading(false);
@@ -135,30 +152,9 @@ export default function StockManagement() {
         const data = await response.json();
         setTransactions(data.transactions || []);
       }
-    } catch (err) {
-      console.error("Error fetching transactions:", err);
+    } catch (_error: unknown) {
+      console.error("Error fetching transactions:", _error);
     }
-  };
-
-  const calculateStats = () => {
-    const totalItems = medicines.length;
-    const lowStockItems = medicines.filter(
-      (m) => m.stock_quantity < 50 && m.stock_quantity >= 10
-    ).length;
-    const criticalStockItems = medicines.filter(
-      (m) => m.stock_quantity < 10
-    ).length;
-    const totalStockValue = medicines.reduce(
-      (sum, m) => sum + Number(m.unit_price) * m.stock_quantity,
-      0
-    );
-
-    setStats({
-      totalItems,
-      lowStockItems,
-      criticalStockItems,
-      totalStockValue,
-    });
   };
 
   const handleStockUpdate = async () => {
@@ -181,7 +177,7 @@ export default function StockManagement() {
       } else {
         setError("Failed to update stock");
       }
-    } catch (err) {
+    } catch (_error: unknown) {
       setError("Error updating stock");
     }
   };
@@ -211,7 +207,7 @@ export default function StockManagement() {
       } else {
         setError("Failed to restock medicine");
       }
-    } catch (err) {
+    } catch (_error: unknown) {
       setError("Error restocking medicine");
     }
   };
@@ -288,7 +284,7 @@ export default function StockManagement() {
           </p>
         </div>
         <ResponsiveButton
-          onClick={() => setShowModal(true)}
+          onClick={() => setShowTransactionModal(true)}
           className="bg-gradient-to-r from-blue-500 to-purple-500 text-white"
         >
           <BarChart3 className="w-4 h-4 mr-2" />

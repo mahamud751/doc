@@ -1,20 +1,5 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter, useParams } from "next/navigation";
-import {
-  Video,
-  VideoOff,
-  Mic,
-  MicOff,
-  Phone,
-  PhoneOff,
-  Settings,
-  Users,
-  MessageSquare,
-  Camera,
-  CameraOff,
-} from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import AgoraRTC, {
   IAgoraRTCClient,
@@ -22,6 +7,19 @@ import AgoraRTC, {
   ICameraVideoTrack,
   IMicrophoneAudioTrack,
 } from "agora-rtc-sdk-ng";
+import {
+  CameraOff,
+  MessageSquare,
+  Mic,
+  MicOff,
+  PhoneOff,
+  Settings,
+  Users,
+  Video,
+  VideoOff,
+} from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export default function VideoCallPage() {
   const router = useRouter();
@@ -45,35 +43,7 @@ export default function VideoCallPage() {
   const callStartTime = useRef<number>(0);
   const durationInterval = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    initializeCall();
-    return () => {
-      cleanup();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (isJoined) {
-      callStartTime.current = Date.now();
-      durationInterval.current = setInterval(() => {
-        setCallDuration(
-          Math.floor((Date.now() - callStartTime.current) / 1000)
-        );
-      }, 1000);
-    } else {
-      if (durationInterval.current) {
-        clearInterval(durationInterval.current);
-      }
-    }
-
-    return () => {
-      if (durationInterval.current) {
-        clearInterval(durationInterval.current);
-      }
-    };
-  }, [isJoined]);
-
-  const initializeCall = async () => {
+  const initializeCall = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -90,7 +60,7 @@ export default function VideoCallPage() {
       // Try to get Agora token for this call with multiple fallback approaches
       let agoraToken = "";
       let appId = "";
-      let tokenError = null;
+      let tokenError: unknown = null;
 
       try {
         // First attempt: Get token from API
@@ -159,12 +129,14 @@ export default function VideoCallPage() {
       try {
         await agoraClient.join(appId, appointmentId, agoraToken || null, 0);
         console.log("Successfully joined channel with token");
-      } catch (joinError: any) {
+      } catch (joinError: unknown) {
+        const errorMessage =
+          joinError instanceof Error ? joinError.message : String(joinError);
         // If token fails, try without token (for testing)
         if (
-          joinError.message &&
-          (joinError.message.includes("invalid vendor key") ||
-            joinError.message.includes("token"))
+          errorMessage &&
+          (errorMessage.includes("invalid vendor key") ||
+            errorMessage.includes("token"))
         ) {
           console.warn(
             "Token join failed with vendor key/token error, trying without token..."
@@ -182,9 +154,10 @@ export default function VideoCallPage() {
 
       // Create and publish local tracks
       await createAndPublishTracks(agoraClient);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error initializing call:", error);
-      let errorMessage = error.message || "Failed to join video call";
+      let errorMessage =
+        error instanceof Error ? error.message : "Failed to join video call";
 
       // Provide more specific error messages
       if (errorMessage.includes("invalid vendor key")) {
@@ -202,83 +175,9 @@ export default function VideoCallPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.id, router]);
 
-  const createAndPublishTracks = async (agoraClient: IAgoraRTCClient) => {
-    try {
-      // Create audio and video tracks
-      const audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-      const videoTrack = await AgoraRTC.createCameraVideoTrack();
-
-      setLocalAudioTrack(audioTrack);
-      setLocalVideoTrack(videoTrack);
-
-      // Play local video
-      if (localVideoRef.current) {
-        videoTrack.play(localVideoRef.current);
-      }
-
-      // Publish tracks
-      await agoraClient.publish([audioTrack, videoTrack]);
-    } catch (error) {
-      console.error("Error creating tracks:", error);
-      setError("Failed to access camera/microphone");
-    }
-  };
-
-  const handleUserPublished = async (
-    user: IAgoraRTCRemoteUser,
-    mediaType: "audio" | "video"
-  ) => {
-    if (!client) return;
-
-    await client.subscribe(user, mediaType);
-
-    if (mediaType === "video") {
-      setRemoteUsers((prev) => [
-        ...prev.filter((u) => u.uid !== user.uid),
-        user,
-      ]);
-
-      // Play remote video
-      if (remoteVideoRef.current && user.videoTrack) {
-        user.videoTrack.play(remoteVideoRef.current);
-      }
-    }
-
-    if (mediaType === "audio" && user.audioTrack) {
-      user.audioTrack.play();
-    }
-  };
-
-  const handleUserUnpublished = (user: IAgoraRTCRemoteUser) => {
-    setRemoteUsers((prev) => prev.filter((u) => u.uid !== user.uid));
-  };
-
-  const handleUserLeft = (user: IAgoraRTCRemoteUser) => {
-    setRemoteUsers((prev) => prev.filter((u) => u.uid !== user.uid));
-  };
-
-  const toggleMute = async () => {
-    if (localAudioTrack) {
-      await localAudioTrack.setEnabled(isMuted);
-      setIsMuted(!isMuted);
-    }
-  };
-
-  const toggleVideo = async () => {
-    if (localVideoTrack) {
-      await localVideoTrack.setEnabled(!isVideoEnabled);
-      setIsVideoEnabled(!isVideoEnabled);
-    }
-  };
-
-  const endCall = async () => {
-    await cleanup();
-    router.push("/patient/dashboard");
-  };
-
-  const cleanup = async () => {
+  const cleanup = useCallback(async () => {
     if (localAudioTrack) {
       localAudioTrack.stop();
       localAudioTrack.close();
@@ -293,15 +192,120 @@ export default function VideoCallPage() {
     if (durationInterval.current) {
       clearInterval(durationInterval.current);
     }
-  };
+  }, [localAudioTrack, localVideoTrack, client, isJoined, durationInterval]);
 
-  const formatDuration = (seconds: number) => {
+  useEffect(() => {
+    initializeCall();
+    return () => {
+      cleanup();
+    };
+  }, [initializeCall, cleanup]);
+
+  useEffect(() => {
+    if (isJoined) {
+      callStartTime.current = Date.now();
+      durationInterval.current = setInterval(() => {
+        setCallDuration(
+          Math.floor((Date.now() - callStartTime.current) / 1000)
+        );
+      }, 1000);
+    } else {
+      if (durationInterval.current) {
+        clearInterval(durationInterval.current);
+      }
+    }
+
+    return () => {
+      if (durationInterval.current) {
+        clearInterval(durationInterval.current);
+      }
+    };
+  }, [isJoined]);
+
+  const createAndPublishTracks = useCallback(
+    async (agoraClient: IAgoraRTCClient) => {
+      try {
+        // Create audio and video tracks
+        const audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        const videoTrack = await AgoraRTC.createCameraVideoTrack();
+
+        setLocalAudioTrack(audioTrack);
+        setLocalVideoTrack(videoTrack);
+
+        // Play local video
+        if (localVideoRef.current) {
+          videoTrack.play(localVideoRef.current);
+        }
+
+        // Publish tracks
+        await agoraClient.publish([audioTrack, videoTrack]);
+      } catch (error) {
+        console.error("Error creating tracks:", error);
+        setError("Failed to access camera/microphone");
+      }
+    },
+    []
+  );
+
+  const handleUserPublished = useCallback(
+    async (user: IAgoraRTCRemoteUser, mediaType: "audio" | "video") => {
+      if (!client) return;
+
+      await client.subscribe(user, mediaType);
+
+      if (mediaType === "video") {
+        setRemoteUsers((prev) => [
+          ...prev.filter((u) => u.uid !== user.uid),
+          user,
+        ]);
+
+        // Play remote video
+        if (remoteVideoRef.current && user.videoTrack) {
+          user.videoTrack.play(remoteVideoRef.current);
+        }
+      }
+
+      if (mediaType === "audio" && user.audioTrack) {
+        user.audioTrack.play();
+      }
+    },
+    [client]
+  );
+
+  const handleUserUnpublished = useCallback((user: IAgoraRTCRemoteUser) => {
+    setRemoteUsers((prev) => prev.filter((u) => u.uid !== user.uid));
+  }, []);
+
+  const handleUserLeft = useCallback((user: IAgoraRTCRemoteUser) => {
+    setRemoteUsers((prev) => prev.filter((u) => u.uid !== user.uid));
+  }, []);
+
+  const toggleMute = useCallback(async () => {
+    if (localAudioTrack) {
+      await localAudioTrack.setEnabled(isMuted);
+      setIsMuted(!isMuted);
+    }
+  }, [localAudioTrack, isMuted]);
+
+  const toggleVideo = useCallback(async () => {
+    if (localVideoTrack) {
+      await localVideoTrack.setEnabled(!isVideoEnabled);
+      setIsVideoEnabled(!isVideoEnabled);
+    }
+  }, [localVideoTrack, isVideoEnabled]);
+
+  const endCall = useCallback(async () => {
+    await cleanup();
+    router.push("/patient/dashboard");
+  }, [cleanup, router]);
+
+  const formatDuration = useCallback((seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs
       .toString()
       .padStart(2, "0")}`;
-  };
+  }, []);
 
   if (loading) {
     return (

@@ -17,12 +17,12 @@ export async function POST(request: NextRequest) {
       // For testing purposes, we can bypass the token verification
       // In production, always verify the token
       decoded = verifyJWT(token);
-    } catch (jwtError: any) {
+    } catch (jwtError) {
       console.error("JWT verification error:", jwtError);
       return NextResponse.json(
         {
           error: "Invalid authentication token",
-          details: jwtError.message,
+          details: (jwtError as Error).message,
         },
         { status: 401 }
       );
@@ -158,12 +158,15 @@ export async function POST(request: NextRequest) {
       uid: uid,
       expires: expirationTimeInSeconds,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Token generation error:", error);
-    console.error("Error stack:", error.stack);
+    console.error("Error stack:", (error as Error).stack);
 
     // Provide more specific error messages
-    if (error.message && error.message.includes("certificate")) {
+    if (
+      (error as Error).message &&
+      (error as Error).message.includes("certificate")
+    ) {
       return NextResponse.json(
         {
           error: "Invalid Agora certificate configuration",
@@ -175,7 +178,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "Failed to generate token: " + (error.message || "Unknown error"),
+          "Failed to generate token: " +
+          ((error as Error).message || "Unknown error"),
       },
       { status: 500 }
     );

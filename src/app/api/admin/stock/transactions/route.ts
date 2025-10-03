@@ -1,6 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
+import { NextRequest, NextResponse } from "next/server";
+
+// Define type for JWT payload
+interface JwtPayload {
+  role: string;
+  [key: string]: unknown;
+}
 
 const prisma = new PrismaClient();
 
@@ -12,19 +18,19 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
     if (decoded.role !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get("type"); // "purchase" or "sale"
+
     const search = searchParams.get("search");
 
     // Since we don't have a dedicated stock transactions table,
     // let's return medicine stock data with computed values
-    let whereClause: any = {
+    const whereClause: Prisma.MedicineWhereInput = {
       is_active: true,
     };
 
@@ -115,7 +121,7 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
     if (decoded.role !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

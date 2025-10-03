@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuthToken } from "@/lib/auth-utils";
+import { Prisma } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
@@ -165,7 +166,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Build update data
-    const updateData: any = {};
+    const updateData: Prisma.SpecialtyUpdateInput = {};
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
     if (icon_url !== undefined) updateData.icon_url = icon_url;

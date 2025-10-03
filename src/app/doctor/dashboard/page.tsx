@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
+import AppointmentManagement from "@/components/doctor/AppointmentManagement";
+import NavigationHeader from "@/components/NavigationHeader";
 import { Button } from "@/components/ui/Button";
 import {
   Card,
@@ -10,44 +10,31 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/Card";
+import { socketClient } from "@/lib/socket-client";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import { AnimatePresence, motion } from "framer-motion";
 import {
+  Activity,
+  AlertCircle,
+  ArrowRight,
+  Award,
   Calendar,
   Clock,
-  Video,
-  FileText,
-  Users,
+  Clock4,
   DollarSign,
-  Settings,
-  Bell,
-  LogOut,
-  Star,
-  Plus,
   Edit,
-  Eye,
+  FileText,
+  Loader2,
+  Plus,
+  Settings,
+  Star,
   Stethoscope,
   TrendingUp,
-  Activity,
-  Award,
-  Sparkles,
-  Zap,
-  Heart,
-  Brain,
-  Pill,
-  ChartBar,
-  UserCheck,
-  MessageCircle,
-  Shield,
-  CheckCircle,
-  Clock4,
-  ArrowRight,
-  Loader2,
-  AlertCircle,
+  Users,
+  Video,
 } from "lucide-react";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import { motion, AnimatePresence } from "framer-motion";
-import NavigationHeader from "@/components/NavigationHeader";
-import { socketClient } from "@/lib/socket-client";
-import AppointmentManagement from "@/components/doctor/AppointmentManagement";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 
 interface DoctorData {
   id: string;
@@ -64,7 +51,7 @@ interface DoctorData {
     total_reviews?: number;
     hospital?: string;
     is_available_online?: boolean;
-    availability_hours?: any;
+    availability_hours?: Record<string, unknown>;
     bio?: string;
   };
   verification_status?: string;
@@ -93,22 +80,6 @@ interface Appointment {
   duration_minutes?: number;
 }
 
-interface Patient {
-  id: string;
-  name: string;
-  phone?: string;
-  patient_profile?: {
-    date_of_birth?: string;
-    gender?: string;
-  };
-}
-
-interface ScheduleDay {
-  day: string;
-  slots: string[];
-  active: boolean;
-}
-
 interface DashboardStats {
   totalPatients: number;
   totalAppointments: number;
@@ -123,34 +94,80 @@ interface DashboardStats {
 }
 
 export default function DoctorDashboard() {
-  const [activeTab, setActiveTab] = useState("overview");
-  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [doctorData, setDoctorData] = useState<DoctorData | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([]);
   const [upcomingAppointments, setUpcomingAppointments] = useState<
     Appointment[]
   >([]);
-  const [recentPatients, setRecentPatients] = useState<Patient[]>([]);
-  const [availability, setAvailability] = useState<any>({});
-  const [schedule, setSchedule] = useState<ScheduleDay[]>([
-    { day: "Monday", slots: [], active: true },
-    { day: "Tuesday", slots: [], active: true },
-    { day: "Wednesday", slots: [], active: true },
-    { day: "Thursday", slots: [], active: true },
-    { day: "Friday", slots: [], active: true },
-    { day: "Saturday", slots: [], active: false },
-    { day: "Sunday", slots: [], active: false },
-  ]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [onlineStatus, setOnlineStatus] = useState<"online" | "busy" | "away">(
     "online"
   );
-  const [unreadMessages, setUnreadMessages] = useState(0);
-  const [realTimeAppointments, setRealTimeAppointments] = useState<
-    Appointment[]
-  >([]);
+  const [activeTab, setActiveTab] = useState("overview");
+  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        window.location.href = "/auth/login";
+        return;
+      }
+
+      const response = await fetch("/api/dashboard", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch dashboard data");
+      }
+
+      const data = await response.json();
+
+      setDoctorData(data.doctor);
+      setStats(data.stats);
+      setTodayAppointments(data.todayAppointments || []);
+      setUpcomingAppointments(data.upcomingAppointments || []);
+    } catch (error: unknown) {
+      console.error("Error fetching dashboard data:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to load dashboard data"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const handleAppointmentUpdate = useCallback(() => {
+    // Update appointment list in real-time
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
+  const handleNewMessage = useCallback(() => {
+    // This function is kept for the useEffect dependencies but doesn't do anything
+    // since unreadMessages state variable was removed
+  }, []);
+
+  const handleStatusChange = useCallback(
+    (statusUpdate: unknown) => {
+      if (
+        statusUpdate &&
+        typeof statusUpdate === "object" &&
+        "doctorId" in statusUpdate &&
+        (statusUpdate as { doctorId: string }).doctorId === doctorData?.id
+      ) {
+        // Update doctor status
+      }
+    },
+    [doctorData?.id]
+  );
 
   useEffect(() => {
     fetchDashboardData();
@@ -179,70 +196,16 @@ export default function DoctorDashboard() {
         socketClient.disconnect();
       };
     }
-  }, []);
-
-  const handleAppointmentUpdate = useCallback((update: any) => {
-    // Update appointment list in real-time
-    fetchDashboardData();
-  }, []);
-
-  const handleNewMessage = useCallback((message: any) => {
-    setUnreadMessages((prev) => prev + 1);
-  }, []);
-
-  const handleStatusChange = useCallback(
-    (statusUpdate: any) => {
-      if (statusUpdate.doctorId === doctorData?.id) {
-        // Update doctor status
-      }
-    },
-    [doctorData?.id]
-  );
+  }, [
+    handleAppointmentUpdate,
+    handleNewMessage,
+    handleStatusChange,
+    fetchDashboardData,
+  ]);
 
   const updateDoctorStatus = (status: "online" | "busy" | "away") => {
     setOnlineStatus(status);
     socketClient.updateStatus(status);
-  };
-
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError("");
-
-      const token = localStorage.getItem("authToken");
-      if (!token) {
-        window.location.href = "/auth/login";
-        return;
-      }
-
-      const response = await fetch("/api/dashboard", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch dashboard data");
-      }
-
-      const data = await response.json();
-
-      setDoctorData(data.doctor);
-      setStats(data.stats);
-      setTodayAppointments(data.todayAppointments || []);
-      setUpcomingAppointments(data.upcomingAppointments || []);
-      setRecentPatients(data.recentPatients || []);
-
-      // Set availability from doctor profile
-      if (data.doctor?.profile?.availability_hours) {
-        setAvailability(data.doctor.profile.availability_hours);
-      }
-    } catch (error: any) {
-      console.error("Error fetching dashboard data:", error);
-      setError(error.message || "Failed to load dashboard data");
-    } finally {
-      setLoading(false);
-    }
   };
 
   if (loading) {
@@ -341,7 +304,7 @@ export default function DoctorDashboard() {
 
   const statItems = [
     {
-      title: "Today's Appointments",
+      title: "Today&apos;s Appointments",
       value: stats.todayAppointments,
       icon: Calendar,
       color: "from-blue-500 to-cyan-500",
@@ -627,7 +590,7 @@ export default function DoctorDashboard() {
                           whileTap={{ scale: 0.95 }}
                         >
                           <Button className="bg-white text-blue-600 hover:bg-gray-100 rounded-full px-6 font-semibold">
-                            View Today's Schedule
+                            View Today&apos;s Schedule
                           </Button>
                         </motion.div>
                         <motion.div
@@ -707,7 +670,7 @@ export default function DoctorDashboard() {
                         <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b">
                           <div className="flex items-center justify-between">
                             <CardTitle className="text-2xl font-bold text-gray-900">
-                              Today's Appointments
+                              Today&apos;s Appointments
                             </CardTitle>
                             <motion.div
                               whileHover={{ scale: 1.05 }}
@@ -932,7 +895,11 @@ export default function DoctorDashboard() {
                             <div className="text-center py-6">
                               <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                               <p className="text-gray-600">
-                                No upcoming appointments
+                                You don&apos;t have any upcoming appointments.
+                              </p>
+                              <p className="text-gray-600">
+                                When patients book appointments, they&apos;ll
+                                appear here.
                               </p>
                             </div>
                           )}
