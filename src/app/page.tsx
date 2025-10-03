@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { MessageCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import {
   Stethoscope,
@@ -23,16 +24,30 @@ import {
   Activity,
   Search,
   CreditCard,
+  Sparkles,
+  Zap,
+  Globe,
+  TrendingUp,
+  Brain,
+  Eye,
+  Bone,
+  Baby,
+  Droplets,
+  Smile,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import AnimatedBackground from "@/components/AnimatedBackground";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import NavigationHeader from "@/components/NavigationHeader";
 
 export default function HomePage() {
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userRole, setUserRole] = useState("");
+  const [hoveredFeature, setHoveredFeature] = useState<number | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("authToken");
@@ -66,514 +81,875 @@ export default function HomePage() {
 
   const features = [
     {
-      icon: <User className="w-8 h-8 text-blue-600" />,
+      icon: <User className="w-10 h-10 text-white" />,
       title: "Expert Doctors",
       description: "Connect with verified doctors across all specialties",
       link: "/doctors",
+      gradient: "from-blue-500 to-cyan-500",
+      bg: "from-blue-50/90 to-cyan-50/90",
     },
     {
-      icon: <Video className="w-8 h-8 text-green-600" />,
+      icon: <Video className="w-10 h-10 text-white" />,
       title: "Video Consultations",
       description: "HD video calls with real-time prescription",
       link: "/booking",
+      gradient: "from-purple-500 to-pink-500",
+      bg: "from-purple-50/90 to-pink-50/90",
     },
     {
-      icon: <Pill className="w-8 h-8 text-purple-600" />,
+      icon: <Pill className="w-10 h-10 text-white" />,
       title: "Online Pharmacy",
       description: "Order medicines with doorstep delivery",
       link: "/medicines",
+      gradient: "from-green-500 to-emerald-500",
+      bg: "from-green-50/90 to-emerald-50/90",
     },
     {
-      icon: <FlaskConical className="w-8 h-8 text-red-600" />,
+      icon: <FlaskConical className="w-10 h-10 text-white" />,
       title: "Lab Tests",
       description: "Book lab tests with home sample collection",
       link: "/lab-tests",
+      gradient: "from-orange-500 to-amber-500",
+      bg: "from-orange-50/90 to-amber-50/90",
     },
     {
-      icon: <Calendar className="w-8 h-8 text-yellow-600" />,
+      icon: <Calendar className="w-10 h-10 text-white" />,
       title: "Easy Booking",
       description: "Schedule appointments in just a few clicks",
       link: "/booking",
+      gradient: "from-indigo-500 to-blue-500",
+      bg: "from-indigo-50/90 to-blue-50/90",
     },
     {
-      icon: <ShieldCheck className="w-8 h-8 text-indigo-600" />,
+      icon: <ShieldCheck className="w-10 h-10 text-white" />,
       title: "Secure & Private",
       description: "Your health data is completely secure",
       link: "#",
+      gradient: "from-red-500 to-rose-500",
+      bg: "from-red-50/90 to-rose-50/90",
     },
   ];
 
   const stats = [
     {
-      number: "10,000+",
-      label: "Happy Patients",
-      icon: <Users className="w-6 h-6" />,
-    },
-    {
-      number: "500+",
-      label: "Expert Doctors",
-      icon: <User className="w-6 h-6" />,
-    },
-    {
       number: "50,000+",
-      label: "Consultations",
-      icon: <Video className="w-6 h-6" />,
+      label: "Happy Patients",
+      icon: <Users className="w-8 h-8" />,
+      color: "from-blue-400 to-cyan-400",
     },
-    { number: "4.8", label: "Rating", icon: <Star className="w-6 h-6" /> },
+    {
+      number: "2,500+",
+      label: "Expert Doctors",
+      icon: <User className="w-8 h-8" />,
+      color: "from-purple-400 to-pink-400",
+    },
+    {
+      number: "150,000+",
+      label: "Consultations",
+      icon: <Video className="w-8 h-8" />,
+      color: "from-green-400 to-emerald-400",
+    },
+    {
+      number: "4.9/5",
+      label: "Rating",
+      icon: <Star className="w-8 h-8" />,
+      color: "from-amber-400 to-orange-400",
+    },
   ];
 
   const services = [
     {
-      title: "General Medicine",
-      doctors: "120+ Doctors",
-      image: "🩺",
-      price: "From $25",
-    },
-    {
       title: "Cardiology",
-      doctors: "45+ Doctors",
+      doctors: "45+ Heart Specialists",
       image: "❤️",
       price: "From $40",
+      icon: <Heart className="w-8 h-8 text-red-500" />,
+      gradient: "from-red-100 to-pink-100",
     },
     {
-      title: "Dermatology",
-      doctors: "30+ Doctors",
-      image: "🧴",
-      price: "From $35",
+      title: "Neurology",
+      doctors: "30+ Brain Specialists",
+      image: "🧠",
+      price: "From $50",
+      icon: <Brain className="w-8 h-8 text-purple-500" />,
+      gradient: "from-purple-100 to-violet-100",
+    },
+    {
+      title: "Orthopedics",
+      doctors: "35+ Bone Specialists",
+      image: "🦴",
+      price: "From $45",
+      icon: <Bone className="w-8 h-8 text-blue-500" />,
+      gradient: "from-blue-100 to-cyan-100",
     },
     {
       title: "Pediatrics",
-      doctors: "60+ Doctors",
+      doctors: "60+ Child Specialists",
       image: "👶",
       price: "From $30",
+      icon: <Baby className="w-8 h-8 text-green-500" />,
+      gradient: "from-green-100 to-emerald-100",
+    },
+    {
+      title: "Dermatology",
+      doctors: "40+ Skin Specialists",
+      image: "🧴",
+      price: "From $35",
+      icon: <Droplets className="w-8 h-8 text-orange-500" />,
+      gradient: "from-orange-100 to-amber-100",
+    },
+    {
+      title: "Dental Care",
+      doctors: "25+ Dentists",
+      image: "🦷",
+      price: "From $40",
+      icon: <Smile className="w-8 h-8 text-teal-500" />,
+      gradient: "from-teal-100 to-cyan-100",
+    },
+    {
+      title: "Pulmonology",
+      doctors: "20+ Lung Specialists",
+      image: "🫁",
+      price: "From $45",
+      icon: <Eye className="w-8 h-8 text-indigo-500" />,
+      gradient: "from-indigo-100 to-blue-100",
+    },
+    {
+      title: "General Medicine",
+      doctors: "120+ Physicians",
+      image: "🩺",
+      price: "From $25",
+      icon: <Stethoscope className="w-8 h-8 text-gray-600" />,
+      gradient: "from-gray-100 to-slate-100",
     },
   ];
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-b z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 relative overflow-hidden">
+      {/* Enhanced Animated Background */}
+      <div className="absolute inset-0">
+        <motion.div
+          animate={{
+            background: [
+              "radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 50%)",
+              "radial-gradient(circle at 80% 20%, rgba(168, 85, 247, 0.08) 0%, transparent 50%)",
+              "radial-gradient(circle at 40% 80%, rgba(14, 165, 233, 0.08) 0%, transparent 50%)",
+              "radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 50%)",
+            ],
+          }}
+          transition={{ duration: 15, repeat: Infinity }}
+          className="absolute inset-0"
+        />
+        <motion.div
+          animate={{
+            x: [0, 100, 0],
+            y: [0, 50, 0],
+          }}
+          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-0 left-0 w-96 h-96 bg-blue-300/20 rounded-full blur-3xl"
+        />
+        <motion.div
+          animate={{
+            x: [0, -100, 0],
+            y: [0, -50, 0],
+          }}
+          transition={{ duration: 30, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute bottom-0 right-0 w-96 h-96 bg-purple-300/20 rounded-full blur-3xl"
+        />
+        <motion.div
+          animate={{
+            x: [0, 150, 0],
+            y: [0, -150, 0],
+          }}
+          transition={{ duration: 35, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-1/2 left-1/4 w-80 h-80 bg-cyan-300/20 rounded-full blur-3xl"
+        />
+      </div>
+
+      {/* Navigation Header */}
+      <NavigationHeader />
+
+      {/* Enhanced Hero Section */}
+      <section className="pt-40 pb-20 px-4 relative">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex items-center space-x-2"
-            >
-              <div className="bg-blue-600 p-2 rounded-lg">
-                <Stethoscope className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xl font-bold text-gray-900">
-                MediConnect
-              </span>
-            </motion.div>
-
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-8">
-              <Link
-                href="/doctors"
-                className="text-gray-700 hover:text-blue-600 transition-colors"
-              >
-                Doctors
-              </Link>
-              <Link
-                href="/medicines"
-                className="text-gray-700 hover:text-blue-600 transition-colors"
-              >
-                Medicines
-              </Link>
-              <Link
-                href="/lab-tests"
-                className="text-gray-700 hover:text-blue-600 transition-colors"
-              >
-                Lab Tests
-              </Link>
-              <Link
-                href="/about"
-                className="text-gray-700 hover:text-blue-600 transition-colors"
-              >
-                About
-              </Link>
-              {isLoggedIn ? (
-                <Button
-                  onClick={handleGetStarted}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  Dashboard
-                </Button>
-              ) : (
-                <div className="flex items-center space-x-3">
-                  <Link href="/auth/login">
-                    <Button variant="outline">Login</Button>
-                  </Link>
-                  <Link href="/auth/register">
-                    <Button className="bg-blue-600 hover:bg-blue-700">
-                      Sign Up
-                    </Button>
-                  </Link>
-                </div>
-              )}
-            </div>
-
-            {/* Mobile menu button */}
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="md:hidden p-2"
-            >
-              {isMenuOpen ? (
-                <X className="w-6 h-6" />
-              ) : (
-                <Menu className="w-6 h-6" />
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile Navigation */}
-        {isMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="md:hidden bg-white border-t"
-          >
-            <div className="px-4 py-6 space-y-4">
-              <Link
-                href="/doctors"
-                className="block text-gray-700 hover:text-blue-600"
-              >
-                Doctors
-              </Link>
-              <Link
-                href="/medicines"
-                className="block text-gray-700 hover:text-blue-600"
-              >
-                Medicines
-              </Link>
-              <Link
-                href="/lab-tests"
-                className="block text-gray-700 hover:text-blue-600"
-              >
-                Lab Tests
-              </Link>
-              <Link
-                href="/about"
-                className="block text-gray-700 hover:text-blue-600"
-              >
-                About
-              </Link>
-              {!isLoggedIn && (
-                <div className="space-y-2 pt-4 border-t">
-                  <Link href="/auth/login">
-                    <Button variant="outline" className="w-full">
-                      Login
-                    </Button>
-                  </Link>
-                  <Link href="/auth/register">
-                    <Button className="w-full bg-blue-600 hover:bg-blue-700">
-                      Sign Up
-                    </Button>
-                  </Link>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </nav>
-
-      {/* Hero Section */}
-      <section className="pt-24 pb-12 bg-gradient-to-br from-blue-50 via-white to-purple-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
+              transition={{ duration: 0.8 }}
+              className="text-center lg:text-left"
             >
-              <h1 className="text-4xl md:text-6xl font-bold text-gray-900 leading-tight">
-                Your Health, <span className="text-blue-600">Our Priority</span>
-              </h1>
-              <p className="text-xl text-gray-600 mt-6 leading-relaxed">
-                Connect with expert doctors, get prescriptions, order medicines,
-                and book lab tests - all from the comfort of your home.
-              </p>
-              <div className="mt-8 flex flex-col sm:flex-row gap-4">
-                <Button
-                  onClick={handleGetStarted}
-                  className="bg-blue-600 hover:bg-blue-700 text-lg px-8 py-3"
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+                className="inline-flex items-center gap-3 bg-gradient-to-r from-blue-100 to-purple-100 text-blue-700 px-6 py-3 rounded-full mb-8 shadow-lg"
+              >
+                <Sparkles className="w-5 h-5" />
+                <span className="font-semibold">
+                  Advanced AI-Powered Healthcare Platform
+                </span>
+              </motion.div>
+
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+                className="text-5xl md:text-7xl font-bold text-gray-900 leading-tight mb-8"
+              >
+                Your Health,{" "}
+                <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                  Our Priority
+                </span>
+              </motion.h1>
+
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.4 }}
+                className="text-xl text-gray-600 mb-10 leading-relaxed max-w-2xl mx-auto lg:mx-0"
+              >
+                Connect with expert doctors, get digital prescriptions, order
+                medicines, and book lab tests - comprehensive healthcare
+                solutions at your fingertips.
+              </motion.p>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.5 }}
+                className="flex flex-col sm:flex-row gap-5 justify-center lg:justify-start"
+              >
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                 >
-                  {isLoggedIn ? "Go to Dashboard" : "Get Started"}
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-                <Link href="/doctors">
                   <Button
-                    variant="outline"
-                    className="text-lg px-8 py-3 w-full sm:w-auto"
+                    onClick={handleGetStarted}
+                    size="xl"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-2xl hover:shadow-3xl transition-all rounded-full px-10 py-6 text-lg font-bold"
                   >
-                    Find Doctors
+                    {isLoggedIn ? "Go to Dashboard" : "Get Started Free"}
+                    <ArrowRight className="w-6 h-6 ml-3" />
                   </Button>
-                </Link>
-              </div>
-              <div className="mt-8 flex items-center space-x-6 text-sm text-gray-600">
-                <div className="flex items-center">
-                  <ShieldCheck className="w-5 h-5 text-green-500 mr-2" />
-                  Verified Doctors
-                </div>
-                <div className="flex items-center">
-                  <Clock className="w-5 h-5 text-blue-500 mr-2" />
-                  24/7 Available
-                </div>
-              </div>
+                </motion.div>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Link href="/doctors">
+                    <Button
+                      variant="outline"
+                      size="xl"
+                      className="border-2 border-gray-300 hover:border-blue-500 rounded-full px-10 py-6 text-lg font-bold"
+                    >
+                      Find Doctors
+                    </Button>
+                  </Link>
+                </motion.div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.6 }}
+                className="mt-12 flex flex-wrap items-center justify-center lg:justify-start gap-8 text-base text-gray-600"
+              >
+                {[
+                  {
+                    icon: ShieldCheck,
+                    text: "Verified Doctors",
+                    color: "text-green-500",
+                  },
+                  {
+                    icon: Clock,
+                    text: "24/7 Available",
+                    color: "text-blue-500",
+                  },
+                  {
+                    icon: Award,
+                    text: "Trusted by 50k+",
+                    color: "text-yellow-500",
+                  },
+                ].map((item, index) => (
+                  <div key={index} className="flex items-center">
+                    <item.icon className={`w-6 h-6 ${item.color} mr-3`} />
+                    <span className="font-semibold">{item.text}</span>
+                  </div>
+                ))}
+              </motion.div>
             </motion.div>
 
             <motion.div
-              initial={{ opacity: 0, x: 20 }}
+              initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
               className="relative"
             >
-              <div className="bg-white rounded-2xl shadow-xl p-8 border">
-                <div className="text-center mb-6">
-                  <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Heart className="w-8 h-8 text-blue-600" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900">
+              {/* Enhanced Animated Card with Bubbles */}
+              <div className="relative z-10 bg-gradient-to-br from-white/90 via-blue-50/50 to-purple-50/50 backdrop-blur-xl rounded-3xl shadow-2xl p-6 border border-white/30 max-w-md mx-auto lg:mx-0">
+                {/* Animated Bubbles */}
+                <motion.div
+                  animate={{
+                    y: [0, -10, 0],
+                    x: [0, 5, 0],
+                    scale: [1, 1.05, 1],
+                  }}
+                  transition={{
+                    duration: 6,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                  className="absolute top-4 right-4 w-8 h-8 bg-blue-400/20 rounded-full blur-sm"
+                />
+                <motion.div
+                  animate={{
+                    y: [0, 10, 0],
+                    x: [0, -5, 0],
+                    scale: [1, 1.1, 1],
+                  }}
+                  transition={{
+                    duration: 8,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: 1,
+                  }}
+                  className="absolute bottom-6 left-6 w-6 h-6 bg-purple-400/20 rounded-full blur-sm"
+                />
+                <motion.div
+                  animate={{
+                    y: [0, -8, 0],
+                    x: [0, 8, 0],
+                    scale: [1, 1.08, 1],
+                  }}
+                  transition={{
+                    duration: 7,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: 2,
+                  }}
+                  className="absolute top-10 left-8 w-4 h-4 bg-indigo-400/20 rounded-full blur-sm"
+                />
+
+                <div className="text-center mb-6 relative z-10">
+                  <motion.div
+                    whileHover={{ scale: 1.1, rotate: 5 }}
+                    className="bg-gradient-to-r from-blue-500 to-purple-500 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl"
+                  >
+                    <Heart className="w-8 h-8 text-white" />
+                  </motion.div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">
                     Quick Health Checkup
                   </h3>
-                  <p className="text-gray-600">Book your consultation now</p>
+                  <p className="text-gray-600 text-sm">
+                    Instant consultation booking
+                  </p>
                 </div>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <span className="text-gray-700">Video Consultation</span>
-                    <span className="text-blue-600 font-semibold">$25</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <span className="text-gray-700">Chat Consultation</span>
-                    <span className="text-blue-600 font-semibold">$15</span>
-                  </div>
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700">
-                    Book Now
-                  </Button>
+
+                <div className="space-y-4 relative z-10">
+                  {[
+                    {
+                      icon: Video,
+                      title: "Video Consultation",
+                      desc: "30 min session",
+                      price: "$25",
+                    },
+                    {
+                      icon: MessageCircle,
+                      title: "Chat Consultation",
+                      desc: "Unlimited messages",
+                      price: "$15",
+                    },
+                  ].map((item, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.6 + index * 0.1 }}
+                      whileHover={{ scale: 1.02, y: -3 }}
+                      className="flex items-center justify-between p-4 bg-gradient-to-r from-white/80 to-blue-50/30 rounded-xl cursor-pointer transition-all shadow-md hover:shadow-lg border border-white/50 backdrop-blur-sm"
+                    >
+                      <div className="flex items-center">
+                        <div className="bg-gradient-to-r from-blue-500 to-purple-500 p-2 rounded-lg mr-4 shadow-md">
+                          <item.icon className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900">
+                            {item.title}
+                          </p>
+                          <p className="text-gray-600 text-sm">{item.desc}</p>
+                        </div>
+                      </div>
+                      <span className="text-blue-600 font-bold">
+                        {item.price}
+                      </span>
+                    </motion.div>
+                  ))}
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.8 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 mt-4 rounded-xl py-3 text-base font-bold shadow-xl hover:shadow-2xl transition-all">
+                      Book Instant Consultation
+                    </Button>
+                  </motion.div>
                 </div>
               </div>
+
+              {/* Floating elements */}
+              <motion.div
+                animate={{
+                  y: [0, -15, 0],
+                }}
+                transition={{
+                  duration: 4,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+                className="absolute -top-4 -right-4 bg-white rounded-2xl shadow-2xl p-4 border border-gray-200/50 backdrop-blur-sm"
+              >
+                <div className="flex items-center">
+                  <div className="bg-gradient-to-r from-green-400 to-emerald-500 p-2 rounded-lg mr-3 shadow-md">
+                    <Zap className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-900">24/7</p>
+                    <p className="text-xs text-gray-600">Availability</p>
+                  </div>
+                </div>
+              </motion.div>
+
+              <motion.div
+                animate={{
+                  y: [0, 15, 0],
+                }}
+                transition={{
+                  duration: 5,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: 1,
+                }}
+                className="absolute -bottom-4 -left-4 bg-white rounded-2xl shadow-2xl p-4 border border-gray-200/50 backdrop-blur-sm"
+              >
+                <div className="flex items-center">
+                  <div className="bg-gradient-to-r from-blue-400 to-cyan-500 p-2 rounded-lg mr-3 shadow-md">
+                    <Globe className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-900">150+</p>
+                    <p className="text-xs text-gray-600">Countries</p>
+                  </div>
+                </div>
+              </motion.div>
             </motion.div>
           </div>
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="py-12 bg-blue-600">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Enhanced Stats Section */}
+      <section className="py-20 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 relative overflow-hidden">
+        <div className="absolute inset-0">
+          <div className="absolute top-0 left-0 w-full h-full">
+            <motion.div
+              animate={{
+                scale: [1, 1.2, 1],
+                opacity: [0.3, 0.5, 0.3],
+              }}
+              transition={{ duration: 8, repeat: Infinity }}
+              className="absolute top-0 left-0 w-80 h-80 bg-white/20 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"
+            />
+            <motion.div
+              animate={{
+                scale: [1.2, 1, 1.2],
+                opacity: [0.4, 0.2, 0.4],
+              }}
+              transition={{ duration: 10, repeat: Infinity }}
+              className="absolute bottom-0 right-0 w-80 h-80 bg-white/20 rounded-full blur-3xl translate-x-1/2 translate-y-1/2"
+            />
+          </div>
+        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {stats.map((stat, index) => (
               <motion.div
                 key={index}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
                 className="text-center text-white"
               >
-                <div className="flex justify-center mb-2">{stat.icon}</div>
-                <div className="text-2xl md:text-3xl font-bold">
+                <motion.div
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  className="flex justify-center mb-5"
+                >
+                  <div
+                    className={`bg-gradient-to-r ${stat.color} p-4 rounded-2xl shadow-2xl backdrop-blur-sm`}
+                  >
+                    {stat.icon}
+                  </div>
+                </motion.div>
+                <div className="text-4xl md:text-5xl font-bold mb-3 drop-shadow-lg">
                   {stat.number}
                 </div>
-                <div className="text-blue-100">{stat.label}</div>
+                <div className="text-blue-100/90 text-lg font-medium">
+                  {stat.label}
+                </div>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-20 bg-gray-50">
+      {/* Enhanced Features Section */}
+      <section className="py-20 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-16"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-20"
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Everything You Need for Better Health
-            </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              From consultations to medicines, we provide comprehensive
-              healthcare solutions at your fingertips
-            </p>
+            <motion.h2
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+              className="text-4xl md:text-5xl font-bold text-gray-900 mb-6"
+            >
+              Complete Healthcare{" "}
+              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Ecosystem
+              </span>
+            </motion.h2>
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3 }}
+              className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed"
+            >
+              From virtual consultations to medicine delivery, we provide
+              end-to-end healthcare solutions designed for modern living
+            </motion.p>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature, index) => (
               <motion.div
                 key={index}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
-                className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow cursor-pointer group"
+                whileHover={{ y: -15, scale: 1.03 }}
+                onHoverStart={() => setHoveredFeature(index)}
+                onHoverEnd={() => setHoveredFeature(null)}
+                className="bg-white/80 backdrop-blur-sm border border-white/30 rounded-3xl shadow-2xl p-8 cursor-pointer group transition-all duration-500 hover:shadow-3xl relative overflow-hidden"
                 onClick={() => router.push(feature.link)}
               >
-                <div className="mb-4 group-hover:scale-110 transition-transform">
+                {/* Animated gradient background */}
+                <motion.div
+                  className={`absolute inset-0 bg-gradient-to-r ${feature.bg} opacity-0 group-hover:opacity-100 transition-opacity duration-500`}
+                  animate={{
+                    opacity: hoveredFeature === index ? 1 : 0,
+                  }}
+                />
+
+                {/* Icon container */}
+                <motion.div
+                  className={`relative z-10 mb-6 bg-gradient-to-r ${feature.gradient} p-4 rounded-2xl shadow-lg w-16 h-16 flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}
+                  whileHover={{ rotate: [0, -5, 5, 0] }}
+                  transition={{ duration: 0.5 }}
+                >
                   {feature.icon}
+                </motion.div>
+
+                <div className="relative z-10">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-4 group-hover:text-gray-800 transition-colors">
+                    {feature.title}
+                  </h3>
+                  <p className="text-gray-600 mb-6 leading-relaxed">
+                    {feature.description}
+                  </p>
+                  <motion.div
+                    className="flex items-center text-blue-600 font-semibold text-lg"
+                    whileHover={{ x: 5 }}
+                  >
+                    <span>Explore</span>
+                    <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                  </motion.div>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  {feature.title}
-                </h3>
-                <p className="text-gray-600">{feature.description}</p>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Services Section */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Enhanced Services Section */}
+      <section className="py-20 bg-gradient-to-br from-blue-50/50 via-purple-50/50 to-indigo-50/50 relative overflow-hidden">
+        <div className="absolute inset-0">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-200/20 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-200/20 rounded-full blur-3xl" />
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-16"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-20"
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Popular Specialties
-            </h2>
-            <p className="text-xl text-gray-600">
-              Choose from our wide range of medical specialties
-            </p>
+            <motion.h2
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+              className="text-4xl md:text-5xl font-bold text-gray-900 mb-6"
+            >
+              Medical{" "}
+              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Specialties
+              </span>
+            </motion.h2>
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3 }}
+              className="text-xl text-gray-600 max-w-2xl mx-auto"
+            >
+              Comprehensive healthcare services across all major medical
+              specialties
+            </motion.p>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {services.map((service, index) => (
               <motion.div
                 key={index}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, y: 30, scale: 0.9 }}
+                whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
-                className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all cursor-pointer group"
+                whileHover={{ y: -10, scale: 1.05 }}
+                className="bg-white/80 backdrop-blur-sm border border-white/30 rounded-3xl p-6 shadow-2xl cursor-pointer group transition-all duration-500 hover:shadow-3xl relative overflow-hidden"
               >
-                <div className="text-4xl mb-4">{service.image}</div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  {service.title}
-                </h3>
-                <p className="text-sm text-gray-600 mb-2">{service.doctors}</p>
-                <p className="text-blue-600 font-semibold">{service.price}</p>
+                {/* Background gradient */}
+                <div
+                  className={`absolute inset-0 bg-gradient-to-br ${service.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`}
+                />
+
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-4xl group-hover:scale-110 transition-transform duration-300">
+                      {service.image}
+                    </div>
+                    <motion.div
+                      whileHover={{ scale: 1.2, rotate: 360 }}
+                      transition={{ duration: 0.5 }}
+                    >
+                      {service.icon}
+                    </motion.div>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-gray-800">
+                    {service.title}
+                  </h3>
+                  <p className="text-gray-600 text-sm mb-4 group-hover:text-gray-700">
+                    {service.doctors}
+                  </p>
+                  <p className="text-blue-600 font-bold text-lg group-hover:text-blue-700">
+                    {service.price}
+                  </p>
+                </div>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-white"
-          >
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Ready to Start Your Health Journey?
-            </h2>
-            <p className="text-xl mb-8 text-blue-100">
-              Join thousands of satisfied patients who trust MediConnect for
-              their healthcare needs
-            </p>
-            <Button
-              onClick={handleGetStarted}
-              className="bg-white text-blue-600 hover:bg-gray-100 text-lg px-8 py-3"
+      {/* Enhanced CTA Section */}
+      <section className="py-20 relative">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-4xl p-16 text-center relative overflow-hidden shadow-2xl">
+            {/* Animated background elements */}
+            <motion.div
+              animate={{
+                scale: [1, 1.1, 1],
+                opacity: [0.1, 0.2, 0.1],
+              }}
+              transition={{ duration: 6, repeat: Infinity }}
+              className="absolute -top-32 -right-32 w-64 h-64 bg-white/10 rounded-full blur-3xl"
+            />
+            <motion.div
+              animate={{
+                scale: [1.1, 1, 1.1],
+                opacity: [0.15, 0.1, 0.15],
+              }}
+              transition={{ duration: 8, repeat: Infinity }}
+              className="absolute -bottom-32 -left-32 w-64 h-64 bg-white/10 rounded-full blur-3xl"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="relative z-10"
             >
-              {isLoggedIn ? "Go to Dashboard" : "Get Started Today"}
-            </Button>
-          </motion.div>
+              <motion.h2
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.2 }}
+                className="text-4xl md:text-6xl font-bold text-white mb-6"
+              >
+                Start Your Health Journey
+                <span className="block text-3xl md:text-4xl text-blue-100 mt-4">
+                  Today!
+                </span>
+              </motion.h2>
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.3 }}
+                className="text-xl mb-12 text-blue-100/90 max-w-2xl mx-auto leading-relaxed"
+              >
+                Join 50,000+ satisfied patients who trust MediConnect for their
+                comprehensive healthcare needs and experience the future of
+                medicine
+              </motion.p>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.4 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Button
+                  onClick={handleGetStarted}
+                  size="xl"
+                  className="bg-white text-blue-600 hover:bg-gray-100 text-xl font-bold rounded-full px-12 py-6 shadow-2xl hover:shadow-3xl transition-all"
+                >
+                  {isLoggedIn ? "Go to Dashboard" : "Get Started Free Today"}
+                  <ArrowRight className="w-6 h-6 ml-3" />
+                </Button>
+              </motion.div>
+            </motion.div>
+          </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
+      {/* Enhanced Footer */}
+      <footer className="bg-white/80 backdrop-blur-xl border-t border-gray-200/50 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
             <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <div className="bg-blue-600 p-2 rounded-lg">
-                  <Stethoscope className="w-6 h-6 text-white" />
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                className="flex items-center space-x-3 mb-6"
+              >
+                <div className="relative">
+                  <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-3 rounded-2xl shadow-lg">
+                    <Stethoscope className="w-7 h-7 text-white" />
+                  </div>
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{
+                      duration: 12,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
+                    className="absolute -top-1 -right-1"
+                  >
+                    <Sparkles className="w-3 h-3 text-yellow-400" />
+                  </motion.div>
                 </div>
-                <span className="text-xl font-bold">MediConnect</span>
-              </div>
-              <p className="text-gray-400">
-                Your trusted partner for comprehensive healthcare solutions.
+                <div>
+                  <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    MediConnect
+                  </span>
+                  <p className="text-xs text-gray-600 font-medium">
+                    Healthcare Excellence
+                  </p>
+                </div>
+              </motion.div>
+              <p className="text-gray-600 leading-relaxed">
+                Your trusted partner for comprehensive, AI-powered healthcare
+                solutions. Transforming healthcare delivery through innovation
+                and compassion.
               </p>
             </div>
-            <div>
-              <h3 className="font-semibold mb-4">Quick Links</h3>
-              <div className="space-y-2">
-                <Link
-                  href="/doctors"
-                  className="block text-gray-400 hover:text-white"
-                >
-                  Find Doctors
-                </Link>
-                <Link
-                  href="/booking"
-                  className="block text-gray-400 hover:text-white"
-                >
-                  Book Appointment
-                </Link>
-                <Link
-                  href="/medicines"
-                  className="block text-gray-400 hover:text-white"
-                >
-                  Medicines
-                </Link>
-                <Link
-                  href="/lab-tests"
-                  className="block text-gray-400 hover:text-white"
-                >
-                  Lab Tests
-                </Link>
+
+            {[
+              {
+                title: "Quick Links",
+                links: [
+                  "Find Doctors",
+                  "Book Appointment",
+                  "Medicines",
+                  "Lab Tests",
+                ],
+              },
+              {
+                title: "Support",
+                links: [
+                  "Help Center",
+                  "Contact Us",
+                  "Privacy Policy",
+                  "Terms of Service",
+                ],
+              },
+              {
+                title: "Contact Info",
+                items: [
+                  { icon: Phone, text: "+1 (555) 123-4567" },
+                  { icon: MapPin, text: "123 Health St, Medical City" },
+                  { icon: Clock, text: "24/7 Available" },
+                ],
+              },
+            ].map((section, index) => (
+              <div key={index}>
+                <h3 className="font-bold text-gray-900 text-lg mb-6">
+                  {section.title}
+                </h3>
+                {section.links ? (
+                  <div className="space-y-4">
+                    {section.links.map((link) => (
+                      <Link
+                        key={link}
+                        href={`/${link.toLowerCase().replace(" ", "-")}`}
+                        className="block text-gray-600 hover:text-blue-600 transition-colors font-medium"
+                      >
+                        {link}
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-4 text-gray-600">
+                    {section.items?.map((item, itemIndex) => (
+                      <div key={itemIndex} className="flex items-start">
+                        <item.icon className="w-5 h-5 mr-4 mt-1 text-blue-600" />
+                        <span className="font-medium">{item.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4">Support</h3>
-              <div className="space-y-2">
-                <Link
-                  href="/help"
-                  className="block text-gray-400 hover:text-white"
-                >
-                  Help Center
-                </Link>
-                <Link
-                  href="/contact"
-                  className="block text-gray-400 hover:text-white"
-                >
-                  Contact Us
-                </Link>
-                <Link
-                  href="/privacy"
-                  className="block text-gray-400 hover:text-white"
-                >
-                  Privacy Policy
-                </Link>
-                <Link
-                  href="/terms"
-                  className="block text-gray-400 hover:text-white"
-                >
-                  Terms of Service
-                </Link>
-              </div>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4">Contact Info</h3>
-              <div className="space-y-2 text-gray-400">
-                <div className="flex items-center">
-                  <Phone className="w-4 h-4 mr-2" />
-                  +1 (555) 123-4567
-                </div>
-                <div className="flex items-center">
-                  <MapPin className="w-4 h-4 mr-2" />
-                  123 Health St, Medical City
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 MediConnect. All rights reserved.</p>
+
+          <div className="border-t border-gray-200/50 mt-12 pt-8 text-center text-gray-600">
+            <p>
+              &copy; 2025 MediConnect. All rights reserved. Transforming
+              healthcare through innovation.
+            </p>
           </div>
         </div>
       </footer>

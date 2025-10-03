@@ -45,6 +45,18 @@ export async function GET(request: NextRequest) {
         doctor_profile: {
           include: {
             verification: true,
+            availability_slots: {
+              where: {
+                is_available: true,
+                start_time: {
+                  gte: new Date(),
+                },
+              },
+              take: 10,
+              orderBy: {
+                start_time: "asc",
+              },
+            },
           },
         },
       },
@@ -72,7 +84,20 @@ export async function GET(request: NextRequest) {
       is_available_online: doctor.doctor_profile?.is_available_online || false,
       languages: doctor.doctor_profile?.languages || [],
       clinic_locations: doctor.doctor_profile?.clinic_locations || [],
-      next_available_slots: [], // Can be populated with real availability logic
+      next_available_slots: doctor.doctor_profile?.availability_slots
+        ? doctor.doctor_profile.availability_slots
+            .filter(
+              (slot) => slot.is_available && slot.start_time >= new Date()
+            )
+            .slice(0, 10)
+            .map((slot) => ({
+              id: slot.id,
+              start_time: slot.start_time.toISOString(),
+              end_time: slot.end_time.toISOString(),
+              is_available: slot.is_available,
+              is_booked: slot.is_booked,
+            }))
+        : [],
     }));
 
     return NextResponse.json({ doctors: formattedDoctors });

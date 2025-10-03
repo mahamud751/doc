@@ -1,11 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Mail, Lock, LogIn } from "lucide-react";
+import { Mail, Lock, LogIn, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LocalStorageManager } from "@/lib/localStorage";
+import { motion } from "framer-motion";
+import AnimatedBackground from "@/components/AnimatedBackground";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,6 +20,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("registered") === "true") {
@@ -76,125 +80,214 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="text-center">
-          <LogIn className="mx-auto h-12 w-12 text-blue-600" />
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Sign in to your account
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Access your telemedicine platform
-          </p>
-        </div>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted relative overflow-hidden">
+      <AnimatedBackground />
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-xl border border-gray-100 sm:rounded-xl sm:px-10">
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            {successMessage && (
-              <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-md text-sm">
-                {successMessage}
-              </div>
-            )}
+      <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative z-10">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="sm:mx-auto sm:w-full sm:max-w-md"
+        >
+          <div className="text-center">
+            <motion.div
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              className="mx-auto h-16 w-16 bg-gradient-to-r from-primary to-secondary rounded-2xl flex items-center justify-center shadow-lg"
+            >
+              <LogIn className="h-8 w-8 text-white" />
+            </motion.div>
+            <h2 className="mt-6 text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              Sign in to your account
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Access your telemedicine platform
+            </p>
+          </div>
+        </motion.div>
 
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">
-                {error}
-              </div>
-            )}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="mt-8 sm:mx-auto sm:w-full sm:max-w-md"
+        >
+          <div className="bg-card border border-border py-8 px-4 shadow-xl sm:rounded-2xl sm:px-10">
+            <form className="space-y-6" onSubmit={handleSubmit}>
+              {successMessage && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm"
+                >
+                  {successMessage}
+                </motion.div>
+              )}
 
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Email Address
-              </label>
-              <div className="mt-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400" />
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm"
+                >
+                  {error}
+                </motion.div>
+              )}
+
+              {/* Email */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <Input
+                    type="email"
+                    required
+                    value={formData.email}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
+                    className="pl-10"
+                    placeholder="Enter your email"
+                  />
                 </div>
-                <input
-                  type="email"
-                  required
-                  value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="Enter your email"
-                />
               </div>
-            </div>
 
-            {/* Password */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <div className="mt-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
+              {/* Password */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Password
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Lock className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={formData.password}
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
+                    className="pl-10 pr-10"
+                    placeholder="Enter your password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-5 w-5 text-muted-foreground" />
+                    )}
+                  </button>
                 </div>
-                <input
-                  type="password"
-                  required
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="Enter your password"
-                />
               </div>
-            </div>
 
-            <div>
-              <Button type="submit" disabled={loading} className="w-full">
-                {loading ? "Signing In..." : "Sign In"}
-              </Button>
-            </div>
-          </form>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <input
+                    id="remember-me"
+                    name="remember-me"
+                    type="checkbox"
+                    className="h-4 w-4 text-primary focus:ring-primary border-border rounded"
+                  />
+                  <label
+                    htmlFor="remember-me"
+                    className="ml-2 block text-sm text-foreground"
+                  >
+                    Remember me
+                  </label>
+                </div>
 
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
+                <div className="text-sm">
+                  <Link
+                    href="#"
+                    className="font-medium text-primary hover:text-primary/80"
+                  >
+                    Forgot your password?
+                  </Link>
+                </div>
               </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">
-                  Don't have an account?
-                </span>
+
+              <div>
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90"
+                  size="lg"
+                >
+                  {loading ? (
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{
+                        duration: 1,
+                        repeat: Infinity,
+                        ease: "linear",
+                      }}
+                      className="h-5 w-5 border-2 border-white border-t-transparent rounded-full"
+                    />
+                  ) : (
+                    "Sign In"
+                  )}
+                </Button>
               </div>
-            </div>
+            </form>
 
             <div className="mt-6">
-              <Link href="/auth/register">
-                <Button variant="outline" className="w-full">
-                  Create Account
-                </Button>
-              </Link>
-            </div>
-          </div>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-card text-muted-foreground">
+                    Don't have an account?
+                  </span>
+                </div>
+              </div>
 
-          {/* Demo Accounts */}
-          <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-blue-900 mb-2">
-              Demo Accounts
-            </h3>
-            <div className="text-xs text-blue-800 space-y-1">
-              <p>
-                <strong>Patient:</strong> patient@example.com / patient123
-              </p>
-              <p>
-                <strong>Doctor:</strong> sarah.wilson@mediconnect.com /
-                doctor123
-              </p>
-              <p>
-                <strong>Admin:</strong> admin@mediconnect.com / admin123
-              </p>
+              <div className="mt-6">
+                <Link href="/auth/register">
+                  <Button variant="outline" className="w-full" size="lg">
+                    Create Account
+                  </Button>
+                </Link>
+              </div>
             </div>
+
+            {/* Demo Accounts */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+              className="mt-6 bg-primary/5 border border-primary/10 rounded-xl p-4"
+            >
+              <h3 className="text-sm font-semibold text-primary mb-2">
+                Demo Accounts
+              </h3>
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>
+                  <strong className="text-foreground">Patient:</strong>{" "}
+                  patient@example.com / patient123
+                </p>
+                <p>
+                  <strong className="text-foreground">Doctor:</strong>{" "}
+                  sarah.wilson@mediconnect.com / doctor123
+                </p>
+                <p>
+                  <strong className="text-foreground">Admin:</strong>{" "}
+                  admin@mediconnect.com / admin123
+                </p>
+              </div>
+            </motion.div>
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

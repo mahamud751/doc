@@ -16,10 +16,19 @@ import {
   ArrowLeft,
   User,
   Phone,
+  Sparkles,
+  Zap,
+  Heart,
+  Clock,
+  Award,
+  CheckCircle,
+  TrendingUp,
+  Eye,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import NavigationHeader from "@/components/NavigationHeader";
 
 // Mock data transformation helper
 const formatCurrency = (amount: number) => `৳${amount}`;
@@ -75,6 +84,7 @@ export default function DoctorsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
   // Transform doctor data for display
   const transformDoctorForDisplay = (doctor: Doctor): DisplayDoctor => ({
@@ -83,9 +93,9 @@ export default function DoctorsPage() {
     isAvailable: doctor.is_available_online,
     totalReviews: doctor.total_reviews,
     experience: doctor.experience_years,
-    location: "Dhaka, Bangladesh", // Default location
+    location: "Dhaka, Bangladesh",
     fee: doctor.consultation_fee,
-    nextAvailable: "Today 2:00 PM", // Mock next available
+    nextAvailable: "Today 2:00 PM",
   });
 
   useEffect(() => {
@@ -95,7 +105,18 @@ export default function DoctorsPage() {
   const fetchDoctors = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/doctors");
+      setError("");
+
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (selectedSpecialty !== "All Specialties") {
+        params.append("specialty", selectedSpecialty);
+      }
+      if (searchTerm) {
+        params.append("search", searchTerm);
+      }
+
+      const response = await fetch(`/api/doctors?${params.toString()}`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch doctors");
@@ -111,6 +132,11 @@ export default function DoctorsPage() {
     }
   };
 
+  // Update fetchDoctors to be called when filters change
+  useEffect(() => {
+    fetchDoctors();
+  }, [selectedSpecialty, searchTerm]);
+
   const filteredDoctors = doctors
     .filter((doctor) => {
       const matchesSearch =
@@ -123,11 +149,11 @@ export default function DoctorsPage() {
         doctor.specialties.includes(selectedSpecialty);
       const matchesPrice =
         priceRange === "all" ||
-        (priceRange === "low" && doctor.consultation_fee <= 50) ||
+        (priceRange === "low" && doctor.consultation_fee <= 500) ||
         (priceRange === "medium" &&
-          doctor.consultation_fee > 50 &&
-          doctor.consultation_fee <= 100) ||
-        (priceRange === "high" && doctor.consultation_fee > 100);
+          doctor.consultation_fee > 500 &&
+          doctor.consultation_fee <= 800) ||
+        (priceRange === "high" && doctor.consultation_fee > 800);
 
       return matchesSearch && matchesSpecialty && matchesPrice;
     })
@@ -154,104 +180,170 @@ export default function DoctorsPage() {
       router.push("/auth/login");
       return;
     }
-
-    // Store selected doctor for booking
     localStorage.setItem("selectedDoctor", JSON.stringify(doctor));
     router.push("/booking");
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading doctors...</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center relative overflow-hidden">
+        <div className="absolute inset-0">
+          <motion.div
+            animate={{
+              background: [
+                "radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 50%)",
+                "radial-gradient(circle at 80% 20%, rgba(168, 85, 247, 0.05) 0%, transparent 50%)",
+                "radial-gradient(circle at 40% 80%, rgba(14, 165, 233, 0.05) 0%, transparent 50%)",
+                "radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 50%)",
+              ],
+            }}
+            transition={{ duration: 15, repeat: Infinity }}
+            className="absolute inset-0"
+          />
         </div>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center relative z-10"
+        >
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 rounded-3xl shadow-2xl mb-6 mx-auto w-24 h-24 flex items-center justify-center">
+            <Stethoscope className="h-12 w-12 text-white" />
+          </div>
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="w-32 h-32 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"
+          ></motion.div>
+          <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            Finding Best Doctors...
+          </h3>
+          <p className="text-gray-600 mt-2">Loading healthcare professionals</p>
+        </motion.div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-            <Users className="w-8 h-8 text-red-600" />
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-2xl border border-white/30"
+        >
+          <div className="bg-red-100 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+            <Users className="w-10 h-10 text-red-600" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          <h3 className="text-2xl font-bold text-gray-900 mb-2">
             Error Loading Doctors
           </h3>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <Button onClick={fetchDoctors}>Try Again</Button>
-        </div>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Button
+              onClick={fetchDoctors}
+              className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-full shadow-lg"
+            >
+              Try Again
+            </Button>
+          </motion.div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center">
-              <Link href="/landing">
-                <Button variant="ghost" size="sm">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back
-                </Button>
-              </Link>
-              <div className="ml-4 flex items-center">
-                <Stethoscope className="h-8 w-8 text-blue-600" />
-                <span className="ml-2 text-2xl font-bold text-gray-900">
-                  MediConnect
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Link href="/auth/login">
-                <Button variant="outline">Login</Button>
-              </Link>
-              <Link href="/auth/register">
-                <Button>Sign Up</Button>
-              </Link>
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 relative overflow-hidden">
+      {/* Enhanced Animated Background */}
+      <div className="absolute inset-0">
+        <motion.div
+          animate={{
+            background: [
+              "radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 50%)",
+              "radial-gradient(circle at 80% 20%, rgba(168, 85, 247, 0.05) 0%, transparent 50%)",
+              "radial-gradient(circle at 40% 80%, rgba(14, 165, 233, 0.05) 0%, transparent 50%)",
+              "radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 50%)",
+            ],
+          }}
+          transition={{ duration: 15, repeat: Infinity }}
+          className="absolute inset-0"
+        />
+        <motion.div
+          animate={{
+            x: [0, 100, 0],
+            y: [0, 50, 0],
+          }}
+          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-0 left-0 w-96 h-96 bg-blue-300/10 rounded-full blur-3xl"
+        />
+        <motion.div
+          animate={{
+            x: [0, -100, 0],
+            y: [0, -50, 0],
+          }}
+          transition={{ duration: 30, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute bottom-0 right-0 w-96 h-96 bg-purple-300/10 rounded-full blur-3xl"
+        />
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Find Your Doctor
-          </h1>
-          <p className="text-gray-600">
+      {/* Navigation Header */}
+      <NavigationHeader currentPage="doctors" />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-8 relative z-10">
+        {/* Hero Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-12"
+        >
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-5xl font-bold text-gray-900 mb-4"
+          >
+            Find Your{" "}
+            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              Perfect Doctor
+            </span>
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="text-xl text-gray-600 max-w-2xl mx-auto"
+          >
             Search and book appointments with qualified healthcare professionals
-          </p>
-        </div>
+            dedicated to your well-being
+          </motion.p>
+        </motion.div>
 
         {/* Search and Filters */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-          <div className="flex flex-col lg:flex-row gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="bg-white/80 backdrop-blur-sm border border-white/30 rounded-3xl shadow-2xl p-8 mb-8"
+        >
+          <div className="flex flex-col lg:flex-row gap-6">
             {/* Search Bar */}
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                 <Input
                   placeholder="Search by doctor name or specialty..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-12 h-14 text-lg rounded-2xl border-2 border-gray-200 focus:border-blue-500 transition-all duration-300"
                 />
               </div>
             </div>
 
             {/* Quick Filters */}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-3 text-black">
               <select
                 value={selectedSpecialty}
                 onChange={(e) => setSelectedSpecialty(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-3 border-2 border-gray-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300"
               >
                 {specialties.map((specialty) => (
                   <option key={specialty} value={specialty}>
@@ -263,7 +355,7 @@ export default function DoctorsPage() {
               <select
                 value={priceRange}
                 onChange={(e) => setPriceRange(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-3 border-2 border-gray-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300"
               >
                 <option value="all">All Prices</option>
                 <option value="low">Below ৳500</option>
@@ -274,7 +366,7 @@ export default function DoctorsPage() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-3 border-2 border-gray-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300"
               >
                 <option value="rating">Sort by Rating</option>
                 <option value="experience">Sort by Experience</option>
@@ -282,149 +374,233 @@ export default function DoctorsPage() {
                 <option value="fee-high">Price: High to Low</option>
               </select>
 
-              <Button
-                variant="outline"
-                onClick={() => setShowFilters(!showFilters)}
-                className="lg:hidden"
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
-                <Filter className="h-4 w-4 mr-2" />
-                Filters
-              </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="lg:hidden rounded-2xl border-2"
+                >
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filters
+                </Button>
+              </motion.div>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Results Summary */}
-        <div className="mb-6">
-          <p className="text-gray-600">
-            Found {sortedDoctors.length} doctors
-            {selectedSpecialty !== "All Specialties" &&
-              ` in ${selectedSpecialty}`}
-          </p>
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="mb-8"
+        >
+          <div className="bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl p-6 text-white shadow-2xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold mb-2">
+                  {sortedDoctors.length} Qualified Doctors Found
+                </h2>
+                <p className="text-blue-100">
+                  {selectedSpecialty !== "All Specialties" &&
+                    `Specializing in ${selectedSpecialty}`}
+                  {selectedSpecialty === "All Specialties" &&
+                    "Across all medical specialties"}
+                </p>
+              </div>
+              <motion.div
+                whileHover={{ scale: 1.1, rotate: 5 }}
+                className="bg-white/20 p-4 rounded-2xl"
+              >
+                <Users className="h-8 w-8" />
+              </motion.div>
+            </div>
+          </div>
+        </motion.div>
 
         {/* Doctors Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {sortedDoctors.map((doctor) => (
-            <Card key={doctor.id} className="hover:shadow-lg transition-shadow">
-              <CardContent className="p-6">
-                {/* Doctor Header */}
-                <div className="flex items-start mb-4">
-                  <div className="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mr-4">
-                    <Stethoscope className="h-8 w-8 text-blue-600" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                      {doctor.name}
-                    </h3>
-                    <p className="text-blue-600 font-medium mb-1">
-                      {doctor.specialty}
+        <AnimatePresence>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {sortedDoctors.map((doctor, index) => (
+              <motion.div
+                key={doctor.id}
+                initial={{ opacity: 0, y: 30, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ delay: index * 0.1 }}
+                whileHover={{ y: -8, scale: 1.02 }}
+                onHoverStart={() => setHoveredCard(doctor.id)}
+                onHoverEnd={() => setHoveredCard(null)}
+                className="relative"
+              >
+                <Card className="bg-white/80 backdrop-blur-sm border border-white/30 rounded-3xl shadow-2xl hover:shadow-3xl transition-all duration-500 overflow-hidden">
+                  <CardContent className="p-6">
+                    {/* Doctor Header with Availability Badge in Same Row */}
+                    <div className="flex items-start justify-between mb-6">
+                      <div className="flex items-start">
+                        <motion.div
+                          whileHover={{ scale: 1.1, rotate: 5 }}
+                          className="relative"
+                        >
+                          <div className="bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl w-20 h-20 flex items-center justify-center shadow-2xl">
+                            <Stethoscope className="h-10 w-10 text-white" />
+                          </div>
+                          {doctor.rating >= 4.5 && (
+                            <motion.div
+                              animate={{ scale: [1, 1.2, 1] }}
+                              transition={{ duration: 2, repeat: Infinity }}
+                              className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full p-1 shadow-lg"
+                            >
+                              <Award className="h-4 w-4 text-white" />
+                            </motion.div>
+                          )}
+                        </motion.div>
+                        <div className="ml-4">
+                          <h3 className="text-xl font-bold text-gray-900">
+                            {doctor.name}
+                          </h3>
+                          <p className="text-blue-600 font-semibold">
+                            {doctor.specialty}
+                          </p>
+                          <div className="flex items-center mt-1">
+                            <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                            <span className="text-sm text-gray-600 ml-1">
+                              {doctor.rating} ({doctor.totalReviews} reviews)
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <motion.div
+                          whileHover={{ scale: 1.05 }}
+                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                            doctor.isAvailable
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {doctor.isAvailable ? "Available" : "Offline"}
+                        </motion.div>
+                        <div className="mt-2 text-right">
+                          <p className="text-2xl font-bold text-gray-900">
+                            {formatCurrency(doctor.fee || 0)}
+                          </p>
+                          <p className="text-xs text-gray-500">Per session</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Doctor Details */}
+                    <div className="space-y-3 mb-6">
+                      <div className="flex items-center text-sm text-gray-600">
+                        <MapPin className="h-4 w-4 mr-2 text-gray-400" />
+                        <span>{doctor.location}</span>
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Clock className="h-4 w-4 mr-2 text-gray-400" />
+                        <span>{doctor.experience} years experience</span>
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Video className="h-4 w-4 mr-2 text-gray-400" />
+                        <span>
+                          {doctor.isAvailable
+                            ? `Next slot: ${doctor.nextAvailable}`
+                            : "Not available for online consultations"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Doctor Bio */}
+                    <p className="text-gray-700 text-sm mb-6 line-clamp-3">
+                      {doctor.bio}
                     </p>
-                    <p className="text-sm text-gray-600">
-                      {doctor.qualifications.join(", ")}
-                    </p>
-                  </div>
-                  {doctor.isAvailable && (
-                    <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
-                      Available
-                    </span>
-                  )}
-                </div>
 
-                {/* Rating and Experience */}
-                <div className="flex items-center mb-4">
-                  <div className="flex items-center mr-4">
-                    <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                    <span className="ml-1 text-sm font-medium">
-                      {doctor.rating}
-                    </span>
-                    <span className="ml-1 text-sm text-gray-500">
-                      ({doctor.totalReviews})
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {doctor.experience} years exp.
-                  </div>
-                </div>
+                    {/* Qualifications */}
+                    <div className="mb-6">
+                      <p className="text-xs font-semibold text-gray-500 mb-2">
+                        QUALIFICATIONS
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {doctor.qualifications.slice(0, 3).map((qual, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium"
+                          >
+                            {qual}
+                          </span>
+                        ))}
+                        {doctor.qualifications.length > 3 && (
+                          <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium">
+                            +{doctor.qualifications.length - 3} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
 
-                {/* Location */}
-                <div className="flex items-center mb-4">
-                  <MapPin className="h-4 w-4 text-gray-400 mr-2" />
-                  <span className="text-sm text-gray-600">
-                    {doctor.location}
-                  </span>
-                </div>
+                    {/* Action Buttons */}
+                    <div className="flex gap-3">
+                      <motion.div
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="flex-1"
+                      >
+                        <Button
+                          onClick={() => handleBookAppointment(doctor)}
+                          className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-2xl shadow-lg"
+                        >
+                          <Video className="h-4 w-4 mr-2" />
+                          Book Appointment
+                        </Button>
+                      </motion.div>
+                      <motion.div
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        <Button
+                          variant="outline"
+                          className="rounded-2xl border-2"
+                        >
+                          <Phone className="h-4 w-4" />
+                        </Button>
+                      </motion.div>
+                    </div>
+                  </CardContent>
 
-                {/* Languages */}
-                <div className="mb-4">
-                  <span className="text-sm text-gray-500">Languages: </span>
-                  <span className="text-sm text-gray-700">
-                    {doctor.languages.join(", ")}
-                  </span>
-                </div>
-
-                {/* Fee and Availability */}
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <span className="text-2xl font-bold text-gray-900">
-                      {formatCurrency(doctor.fee || 0)}
-                    </span>
-                    <span className="text-sm text-gray-500 ml-1">
-                      per consultation
-                    </span>
-                  </div>
-                </div>
-
-                {/* Next Available */}
-                <div className="flex items-center mb-4">
-                  <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                  <span className="text-sm text-gray-600">
-                    Next: {doctor.nextAvailable}
-                  </span>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex space-x-2">
-                  <Link href={`/doctors/${doctor.id}`} className="flex-1">
-                    <Button variant="outline" className="w-full">
-                      View Profile
-                    </Button>
-                  </Link>
-                  <Link href={`/booking/${doctor.id}`} className="flex-1">
-                    <Button className="w-full" disabled={!doctor.isAvailable}>
-                      <Video className="h-4 w-4 mr-2" />
-                      Book Now
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* No Results */}
-        {sortedDoctors.length === 0 && (
-          <div className="text-center py-12">
-            <div className="bg-gray-100 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-4">
-              <Users className="h-12 w-12 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No doctors found
-            </h3>
-            <p className="text-gray-600 mb-4">
-              Try adjusting your search criteria or browse all available
-              doctors.
-            </p>
-            <Button
-              onClick={() => {
-                setSearchTerm("");
-                setSelectedSpecialty("All Specialties");
-                setPriceRange("all");
-              }}
-            >
-              Clear Filters
-            </Button>
+                  {/* Hover Effect Overlay */}
+                  <AnimatePresence>
+                    {hoveredCard === doctor.id && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-3xl pointer-events-none"
+                      />
+                    )}
+                  </AnimatePresence>
+                </Card>
+              </motion.div>
+            ))}
           </div>
+        </AnimatePresence>
+
+        {sortedDoctors.length === 0 && !loading && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-12"
+          >
+            <div className="bg-gray-100 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-4">
+              <Users className="w-12 h-12 text-gray-400" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              No Doctors Found
+            </h3>
+            <p className="text-gray-600">
+              Try adjusting your search or filter criteria
+            </p>
+          </motion.div>
         )}
       </div>
     </div>

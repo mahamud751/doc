@@ -192,13 +192,26 @@ export default function AgoraVideoCall({
           error
         );
         // Use null token for testing purposes
+        // Make sure we have a valid App ID
+        const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID || "";
+
+        // Validate App ID format before using it
+        if (!appId || appId.length !== 32) {
+          throw new Error("Invalid Agora App ID configuration");
+        }
+
         tokenData = {
-          appId: process.env.NEXT_PUBLIC_AGORA_APP_ID || "",
+          appId: appId,
           token: null,
           channel: channelName,
           uid: uid,
           expires: 0,
         };
+      }
+
+      // Validate that we have a valid App ID
+      if (!tokenData.appId || tokenData.appId.length !== 32) {
+        throw new Error("Invalid Agora App ID received from token endpoint");
       }
 
       // Create Agora client

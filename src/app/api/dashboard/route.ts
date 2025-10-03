@@ -92,14 +92,10 @@ async function getPatientDashboard(userId: string) {
         },
       },
       include: {
-        doctor: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
+        doctor_user: {
+          select: {
+            id: true,
+            name: true,
           },
         },
         appointment: {
@@ -230,6 +226,14 @@ async function getDoctorDashboard(userId: string) {
       take: 10,
     });
 
+    // Get pending appointments
+    const pendingAppointments = await prisma.appointment.count({
+      where: {
+        doctor_id: userId,
+        status: "PENDING",
+      },
+    });
+
     // Get recent patients
     const recentPatients = await prisma.appointment.findMany({
       where: {
@@ -310,6 +314,7 @@ async function getDoctorDashboard(userId: string) {
         completedAppointments,
         todayAppointments: todayAppointments.length,
         upcomingAppointments: upcomingAppointments.length,
+        pendingAppointments, // Add this line
         rating: doctor.doctor_profile?.rating || 0,
         totalReviews: doctor.doctor_profile?.total_reviews || 0,
         totalRevenue: totalRevenue,

@@ -11,7 +11,22 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    const decoded = verifyJWT(token);
+
+    let decoded;
+    try {
+      // For testing purposes, we can bypass the token verification
+      // In production, always verify the token
+      decoded = verifyJWT(token);
+    } catch (jwtError: any) {
+      console.error("JWT verification error:", jwtError);
+      return NextResponse.json(
+        {
+          error: "Invalid authentication token",
+          details: jwtError.message,
+        },
+        { status: 401 }
+      );
+    }
 
     if (!decoded) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
@@ -28,13 +43,54 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const appId = process.env.AGORA_APP_ID;
+    const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID;
     const appCertificate = process.env.AGORA_APP_CERTIFICATE;
 
+    // Log for debugging
+    console.log("Token generation parameters:", {
+      appId: appId ? `${appId.substring(0, 8)}...` : "NOT SET",
+      appCertificate: appCertificate
+        ? `${appCertificate.substring(0, 8)}...`
+        : "NOT SET",
+      channelName,
+      uid,
+      role,
+    });
+
     if (!appId || !appCertificate) {
+      console.error("Agora credentials missing:", {
+        appId: !!appId,
+        appCertificate: !!appCertificate,
+      });
       return NextResponse.json(
         {
           error: "Agora credentials not configured",
+        },
+        { status: 500 }
+      );
+    }
+
+    // Validate App ID format
+    if (appId.length !== 32) {
+      console.error("Invalid App ID length:", appId.length);
+      return NextResponse.json(
+        {
+          error: `Invalid App ID length: ${appId.length}, expected 32 characters`,
+          appIdLength: appId.length,
+          appId: appId,
+        },
+        { status: 500 }
+      );
+    }
+
+    // Validate Certificate format
+    if (appCertificate.length !== 32) {
+      console.error("Invalid Certificate length:", appCertificate.length);
+      return NextResponse.json(
+        {
+          error: `Invalid Certificate length: ${appCertificate.length}, expected 32 characters`,
+          certLength: appCertificate.length,
+          cert: appCertificate,
         },
         { status: 500 }
       );
@@ -45,6 +101,16 @@ export async function POST(request: NextRequest) {
 
     // Determine role - doctors can be publishers, patients can be subscribers or publishers
     const agoraRole = role === "doctor" ? RtcRole.PUBLISHER : RtcRole.PUBLISHER;
+
+    console.log("Generating token with:", {
+      appId: appId.substring(0, 8) + "...",
+      appCertificate: appCertificate.substring(0, 8) + "...",
+      channelName,
+      uid,
+      role,
+      agoraRole,
+      expirationTimeInSeconds,
+    });
 
     // Generate the Agora RTC token
     const agoraToken = RtcTokenBuilder.buildTokenWithUid(
@@ -57,6 +123,9 @@ export async function POST(request: NextRequest) {
       expirationTimeInSeconds // privilegeExpiredTs
     );
 
+    console.log("Token generated successfully for channel:", channelName);
+    console.log("Generated token:", agoraToken.substring(0, 20) + "...");
+
     return NextResponse.json({
       token: agoraToken,
       appId: appId,
@@ -66,6 +135,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error("Token generation error:", error);
+    console.error("Error stack:", error.stack);
 
     // Provide more specific error messages
     if (error.message && error.message.includes("certificate")) {

@@ -1,789 +1,462 @@
 "use client";
 
-import React, { useState } from "react";
-import { Button } from "@/components/ui/Button";
+import React, { useState, useEffect } from "react";
+import ResponsiveLayout from "@/components/ResponsiveLayout";
+import NavigationHeader from "@/components/NavigationHeader";
+import { motion } from "framer-motion";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/Card";
-import { Input } from "@/components/ui/Input";
-import {
+  Activity,
   Users,
   UserCheck,
-  Calendar,
-  DollarSign,
-  Activity,
-  TrendingUp,
-  AlertTriangle,
-  Shield,
-  Settings,
-  Bell,
-  LogOut,
-  Search,
-  Filter,
-  Download,
-  Edit,
-  Eye,
-  Check,
-  X,
-  Plus,
   Stethoscope,
-  FileText,
+  Calendar,
   Pill,
+  Package,
   TestTube,
+  FlaskConical,
+  ShoppingCart,
+  Star,
+  Heart,
   BarChart3,
+  Shield,
+  DollarSign,
+  TrendingUp,
 } from "lucide-react";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { ResponsiveCard } from "@/components/ResponsiveComponents";
+import { formatCurrency } from "@/lib/utils";
 
-// Mock data for demonstration
-const mockStats = {
-  totalUsers: 1250,
-  totalDoctors: 45,
-  totalPatients: 1205,
-  pendingVerifications: 12,
-  totalAppointments: 890,
-  monthlyRevenue: 450000,
-  completedConsultations: 756,
-  averageRating: 4.7,
-};
+// Import all the modular admin components
+import DoctorManagement from "@/components/admin/DoctorManagement";
+import StockManagement from "@/components/admin/StockManagement";
+import AppointmentManagement from "@/components/admin/AppointmentManagement";
+import UserManagement from "@/components/admin/UserManagement";
+import MedicineManagement from "@/components/admin/MedicineManagement";
+import LabPackageManagement from "@/components/admin/LabPackageManagement";
+import OrderManagement from "@/components/admin/OrderManagement";
+import ReviewManagement from "@/components/admin/ReviewManagement";
+import SpecialtyManagement from "@/components/admin/SpecialtyManagement";
+import CategoryManagement from "@/components/admin/CategoryManagement";
+import LabTestManagement from "@/components/admin/LabTestManagement";
 
-const mockPendingDoctors = [
-  {
-    id: "1",
-    name: "Dr. Rashida Begum",
-    email: "rashida.begum@email.com",
-    specialty: "Gynecologist",
-    experience: 18,
-    qualifications: ["MBBS", "FCPS (Gynae)"],
-    hospital: "United Hospital",
-    submittedAt: "2024-01-12",
-    documents: ["Medical License", "ID Card", "Photo"],
-  },
-  {
-    id: "2",
-    name: "Dr. Karim Rahman",
-    email: "karim.rahman@email.com",
-    specialty: "Neurologist",
-    experience: 22,
-    qualifications: ["MBBS", "FCPS (Neurology)", "PhD"],
-    hospital: "Square Hospital",
-    submittedAt: "2024-01-11",
-    documents: ["Medical License", "ID Card", "Photo", "Certificate"],
-  },
-];
+// Import the new DoctorVerificationTab component
+import DoctorVerificationTab from "@/components/admin/DoctorVerificationTab";
 
-const mockRecentAppointments = [
-  {
-    id: "1",
-    patient: "Sarah Ahmed",
-    doctor: "Dr. Ahmed Kabir",
-    date: "2024-01-15",
-    time: "02:00 PM",
-    status: "upcoming",
-    amount: 800,
-    type: "Video Consultation",
-  },
-  {
-    id: "2",
-    patient: "Mohammad Rahman",
-    doctor: "Dr. Fatima Rahman",
-    date: "2024-01-15",
-    time: "10:00 AM",
-    status: "completed",
-    amount: 600,
-    type: "Video Consultation",
-  },
-];
-
-const mockUsers = [
-  {
-    id: "1",
-    name: "Sarah Ahmed",
-    email: "sarah.ahmed@email.com",
-    role: "PATIENT",
-    status: "active",
-    joinDate: "2024-01-10",
-    lastLogin: "2024-01-15",
-  },
-  {
-    id: "2",
-    name: "Dr. Ahmed Kabir",
-    email: "ahmed.kabir@email.com",
-    role: "DOCTOR",
-    status: "active",
-    joinDate: "2024-01-05",
-    lastLogin: "2024-01-15",
-  },
-];
-
-const mockMedicines = [
-  {
-    id: "1",
-    name: "Paracetamol",
-    genericName: "Acetaminophen",
-    manufacturer: "Square Pharmaceuticals",
-    category: "Tablet",
-    strength: "500mg",
-    price: 2.5,
-    stock: 1000,
-    prescriptionRequired: false,
-  },
-  {
-    id: "2",
-    name: "Amlodipine",
-    genericName: "Amlodipine Besylate",
-    manufacturer: "Beximco Pharmaceuticals",
-    category: "Tablet",
-    strength: "5mg",
-    price: 8.0,
-    stock: 500,
-    prescriptionRequired: true,
-  },
-];
-
-const mockLabPackages = [
-  {
-    id: "1",
-    name: "Complete Blood Count (CBC)",
-    category: "Blood Test",
-    price: 800,
-    testsIncluded: ["RBC Count", "WBC Count", "Hemoglobin", "Platelet Count"],
-    reportingTime: "24 hours",
-    isActive: true,
-  },
-  {
-    id: "2",
-    name: "Lipid Profile",
-    category: "Blood Test",
-    price: 1200,
-    testsIncluded: ["Total Cholesterol", "HDL", "LDL", "Triglycerides"],
-    reportingTime: "24 hours",
-    isActive: true,
-  },
-];
+interface DashboardStats {
+  totalUsers: number;
+  totalDoctors: number;
+  totalPatients: number;
+  pendingVerifications: number;
+  totalAppointments: number;
+  monthlyRevenue: number;
+  totalMedicines: number;
+  totalLabPackages: number;
+  lowStockMedicines: number;
+  pendingOrders: number;
+}
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [stats, setStats] = useState<DashboardStats>({
+    totalUsers: 0,
+    totalDoctors: 0,
+    totalPatients: 0,
+    pendingVerifications: 0,
+    totalAppointments: 0,
+    monthlyRevenue: 0,
+    totalMedicines: 0,
+    totalLabPackages: 0,
+    lowStockMedicines: 0,
+    pendingOrders: 0,
+  });
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const token = localStorage.getItem("authToken");
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
+
+      // Fetch dashboard stats
+      const statsResponse = await fetch("/api/dashboard/stats", { headers });
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json();
+        setStats(statsData.stats || stats);
+      }
+    } catch (error) {
+      console.error("Dashboard data fetch error:", error);
+      setError("Failed to load dashboard data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const navigationItems = [
+    { id: "overview", icon: Activity, label: "Overview" },
+    { id: "users", icon: Users, label: "User Management" },
+    {
+      id: "doctor-verification",
+      icon: UserCheck,
+      label: "Doctor Verification",
+    },
+    { id: "doctors", icon: Stethoscope, label: "Doctors" },
+    { id: "appointments", icon: Calendar, label: "Appointments" },
+    { id: "medicines", icon: Pill, label: "Medicines" },
+    { id: "categories", icon: Package, label: "Categories" },
+    { id: "stock-management", icon: Package, label: "Stock Management" },
+    { id: "lab-packages", icon: TestTube, label: "Lab Packages" },
+    { id: "lab-tests", icon: FlaskConical, label: "Lab Tests" },
+    { id: "orders", icon: ShoppingCart, label: "Orders" },
+    { id: "reviews", icon: Star, label: "Reviews" },
+    { id: "specialties", icon: Heart, label: "Specialties" },
+    { id: "analytics", icon: BarChart3, label: "Analytics" },
+  ];
+
+  if (loading) {
+    return (
+      <>
+        <NavigationHeader currentPage="admin-dashboard" />
+        <ResponsiveLayout
+          title="Admin Dashboard"
+          user={{
+            name: "Admin User",
+            email: "admin@medical.com",
+            role: "ADMIN",
+          }}
+        >
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          </div>
+        </ResponsiveLayout>
+      </>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center">
-              <Shield className="h-8 w-8 text-red-600" />
-              <span className="ml-2 text-2xl font-bold text-gray-900">
-                MediConnect Admin
-              </span>
-            </div>
+    <>
+      {/* Navigation Header */}
+      <NavigationHeader currentPage="admin-dashboard" />
 
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm">
-                <Bell className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="sm">
-                <Settings className="h-5 w-5" />
-              </Button>
-              <Button variant="outline" size="sm">
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Sidebar */}
-          <div className="lg:w-64">
-            <Card>
-              <CardContent className="p-6">
-                <div className="text-center mb-6">
-                  <div className="bg-red-100 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
-                    <Shield className="h-10 w-10 text-red-600" />
-                  </div>
-                  <h2 className="text-xl font-semibold">Admin Panel</h2>
-                  <p className="text-gray-600">System Management</p>
-                </div>
-
-                <nav className="space-y-2">
-                  <button
-                    onClick={() => setActiveTab("overview")}
-                    className={`w-full text-left px-3 py-2 rounded-lg flex items-center ${
-                      activeTab === "overview"
-                        ? "bg-red-50 text-red-700"
-                        : "text-gray-700 hover:bg-gray-50"
-                    }`}
-                  >
-                    <Activity className="h-4 w-4 mr-3" />
-                    Overview
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("users")}
-                    className={`w-full text-left px-3 py-2 rounded-lg flex items-center ${
-                      activeTab === "users"
-                        ? "bg-red-50 text-red-700"
-                        : "text-gray-700 hover:bg-gray-50"
-                    }`}
-                  >
-                    <Users className="h-4 w-4 mr-3" />
-                    Users
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("doctor-verification")}
-                    className={`w-full text-left px-3 py-2 rounded-lg flex items-center ${
-                      activeTab === "doctor-verification"
-                        ? "bg-red-50 text-red-700"
-                        : "text-gray-700 hover:bg-gray-50"
-                    }`}
-                  >
-                    <UserCheck className="h-4 w-4 mr-3" />
-                    Doctor Verification
-                    {mockPendingDoctors.length > 0 && (
-                      <span className="ml-auto bg-red-600 text-white text-xs px-2 py-1 rounded-full">
-                        {mockPendingDoctors.length}
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("appointments")}
-                    className={`w-full text-left px-3 py-2 rounded-lg flex items-center ${
-                      activeTab === "appointments"
-                        ? "bg-red-50 text-red-700"
-                        : "text-gray-700 hover:bg-gray-50"
-                    }`}
-                  >
-                    <Calendar className="h-4 w-4 mr-3" />
-                    Appointments
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("medicines")}
-                    className={`w-full text-left px-3 py-2 rounded-lg flex items-center ${
-                      activeTab === "medicines"
-                        ? "bg-red-50 text-red-700"
-                        : "text-gray-700 hover:bg-gray-50"
-                    }`}
-                  >
-                    <Pill className="h-4 w-4 mr-3" />
-                    Medicines
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("lab-packages")}
-                    className={`w-full text-left px-3 py-2 rounded-lg flex items-center ${
-                      activeTab === "lab-packages"
-                        ? "bg-red-50 text-red-700"
-                        : "text-gray-700 hover:bg-gray-50"
-                    }`}
-                  >
-                    <TestTube className="h-4 w-4 mr-3" />
-                    Lab Packages
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("analytics")}
-                    className={`w-full text-left px-3 py-2 rounded-lg flex items-center ${
-                      activeTab === "analytics"
-                        ? "bg-red-50 text-red-700"
-                        : "text-gray-700 hover:bg-gray-50"
-                    }`}
-                  >
-                    <BarChart3 className="h-4 w-4 mr-3" />
-                    Analytics
-                  </button>
-                </nav>
-              </CardContent>
-            </Card>
+      <ResponsiveLayout
+        title="Admin Dashboard"
+        user={{
+          name: "Admin User",
+          email: "admin@medical.com",
+          role: "ADMIN",
+        }}
+      >
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+          {/* Animated Background */}
+          <div className="absolute inset-0">
+            <motion.div
+              animate={{
+                background: [
+                  "radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 50%)",
+                  "radial-gradient(circle at 80% 20%, rgba(168, 85, 247, 0.05) 0%, transparent 50%)",
+                  "radial-gradient(circle at 40% 80%, rgba(14, 165, 233, 0.05) 0%, transparent 50%)",
+                  "radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 50%)",
+                ],
+              }}
+              transition={{ duration: 15, repeat: Infinity }}
+              className="absolute inset-0"
+            />
           </div>
 
-          {/* Main Content */}
-          <div className="flex-1">
-            {/* Overview Tab */}
-            {activeTab === "overview" && (
-              <div className="space-y-6">
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                    Platform Overview
-                  </h1>
-                  <p className="text-gray-600">
-                    Monitor and manage your telemedicine platform
-                  </p>
-                </div>
-
-                {/* Key Metrics */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center">
-                        <div className="bg-blue-100 rounded-full p-3">
-                          <Users className="h-6 w-6 text-blue-600" />
-                        </div>
-                        <div className="ml-4">
-                          <p className="text-2xl font-bold">
-                            {mockStats.totalUsers.toLocaleString()}
-                          </p>
-                          <p className="text-gray-600">Total Users</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center">
-                        <div className="bg-green-100 rounded-full p-3">
-                          <Stethoscope className="h-6 w-6 text-green-600" />
-                        </div>
-                        <div className="ml-4">
-                          <p className="text-2xl font-bold">
-                            {mockStats.totalDoctors}
-                          </p>
-                          <p className="text-gray-600">Active Doctors</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center">
-                        <div className="bg-purple-100 rounded-full p-3">
-                          <Calendar className="h-6 w-6 text-purple-600" />
-                        </div>
-                        <div className="ml-4">
-                          <p className="text-2xl font-bold">
-                            {mockStats.totalAppointments}
-                          </p>
-                          <p className="text-gray-600">Total Appointments</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center">
-                        <div className="bg-yellow-100 rounded-full p-3">
-                          <DollarSign className="h-6 w-6 text-yellow-600" />
-                        </div>
-                        <div className="ml-4">
-                          <p className="text-2xl font-bold">
-                            {formatCurrency(mockStats.monthlyRevenue)}
-                          </p>
-                          <p className="text-gray-600">Monthly Revenue</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Pending Actions */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <Card>
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="flex items-center">
-                          <AlertTriangle className="h-5 w-5 text-orange-600 mr-2" />
-                          Pending Doctor Verifications
-                        </CardTitle>
-                        <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-sm font-medium">
-                          {mockPendingDoctors.length}
-                        </span>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {mockPendingDoctors.slice(0, 3).map((doctor) => (
-                          <div
-                            key={doctor.id}
-                            className="flex items-center justify-between p-3 bg-orange-50 rounded-lg"
-                          >
-                            <div>
-                              <p className="font-medium">{doctor.name}</p>
-                              <p className="text-sm text-gray-600">
-                                {doctor.specialty}
-                              </p>
-                            </div>
-                            <Button size="sm">Review</Button>
-                          </div>
-                        ))}
-                      </div>
-                      <Button variant="outline" className="w-full mt-4">
-                        View All
-                      </Button>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Recent Activity</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="flex items-center">
-                          <div className="bg-green-100 rounded-full p-2 mr-3">
-                            <UserCheck className="h-4 w-4 text-green-600" />
-                          </div>
-                          <div>
-                            <p className="font-medium">
-                              Dr. Fatima Rahman verified
-                            </p>
-                            <p className="text-sm text-gray-600">2 hours ago</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center">
-                          <div className="bg-blue-100 rounded-full p-2 mr-3">
-                            <Users className="h-4 w-4 text-blue-600" />
-                          </div>
-                          <div>
-                            <p className="font-medium">
-                              25 new patient registrations
-                            </p>
-                            <p className="text-sm text-gray-600">Today</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center">
-                          <div className="bg-purple-100 rounded-full p-2 mr-3">
-                            <Calendar className="h-4 w-4 text-purple-600" />
-                          </div>
-                          <div>
-                            <p className="font-medium">
-                              156 appointments completed
-                            </p>
-                            <p className="text-sm text-gray-600">This week</p>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Platform Health */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <Card>
-                    <CardContent className="p-6 text-center">
-                      <div className="text-3xl font-bold text-green-600 mb-2">
-                        99.9%
-                      </div>
-                      <p className="text-gray-600">Platform Uptime</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-6 text-center">
-                      <div className="text-3xl font-bold text-blue-600 mb-2">
-                        {mockStats.averageRating}
-                      </div>
-                      <p className="text-gray-600">Average Rating</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-6 text-center">
-                      <div className="text-3xl font-bold text-orange-600 mb-2">
-                        2.3s
-                      </div>
-                      <p className="text-gray-600">Avg Response Time</p>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-            )}
-
-            {/* Doctor Verification Tab */}
-            {activeTab === "doctor-verification" && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h1 className="text-3xl font-bold text-gray-900">
-                    Doctor Verification
-                  </h1>
-                  <div className="flex items-center space-x-4">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                      <Input
-                        placeholder="Search doctors..."
-                        className="pl-10"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                      />
+          <div className="relative z-10">
+            <div className="pt-24 pb-8">
+              <div className="flex gap-8">
+                {/* Left Sidebar */}
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="w-64 flex-shrink-0"
+                >
+                  <div className="bg-white/80 backdrop-blur-xl shadow-2xl border border-white/30 rounded-2xl p-6 sticky top-32">
+                    <div className="text-center mb-6">
+                      <motion.div
+                        whileHover={{ scale: 1.1, rotate: 5 }}
+                        className="bg-gradient-to-r from-blue-500 to-purple-500 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-3"
+                      >
+                        <Shield className="h-8 w-8 text-white" />
+                      </motion.div>
+                      <h2 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                        Admin Panel
+                      </h2>
+                      <p className="text-sm text-gray-600">System Management</p>
                     </div>
-                    <Button variant="outline">
-                      <Filter className="h-4 w-4 mr-2" />
-                      Filter
-                    </Button>
+
+                    {/* Navigation Menu */}
+                    <nav className="space-y-2">
+                      {navigationItems.map((item, index) => (
+                        <motion.button
+                          key={item.id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          whileHover={{ x: 4, scale: 1.02 }}
+                          onClick={() => setActiveTab(item.id)}
+                          className={`w-full text-left px-4 py-3 rounded-xl flex items-center transition-all duration-200 ${
+                            activeTab === item.id
+                              ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg"
+                              : "text-gray-700 hover:bg-white/60 hover:shadow-md"
+                          }`}
+                        >
+                          <item.icon className="h-5 w-5 mr-3" />
+                          <span className="font-medium">{item.label}</span>
+                        </motion.button>
+                      ))}
+                    </nav>
                   </div>
-                </div>
+                </motion.div>
 
-                <div className="space-y-6">
-                  {mockPendingDoctors.map((doctor) => (
-                    <Card key={doctor.id}>
-                      <CardContent className="p-6">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start">
-                            <div className="bg-orange-100 rounded-full w-16 h-16 flex items-center justify-center mr-4">
-                              <Stethoscope className="h-8 w-8 text-orange-600" />
-                            </div>
-                            <div>
-                              <h3 className="text-lg font-semibold">
-                                {doctor.name}
-                              </h3>
-                              <p className="text-blue-600">
-                                {doctor.specialty}
-                              </p>
-                              <p className="text-gray-600">
-                                {doctor.experience} years experience
-                              </p>
-                              <p className="text-sm text-gray-500">
-                                {doctor.email}
-                              </p>
-                              <div className="mt-2">
-                                <p className="text-sm text-gray-600">
-                                  <strong>Qualifications:</strong>{" "}
-                                  {doctor.qualifications.join(", ")}
-                                </p>
-                                <p className="text-sm text-gray-600">
-                                  <strong>Hospital:</strong> {doctor.hospital}
-                                </p>
-                                <p className="text-sm text-gray-600">
-                                  <strong>Submitted:</strong>{" "}
-                                  {formatDate(doctor.submittedAt)}
-                                </p>
-                              </div>
-                              <div className="mt-3">
-                                <p className="text-sm text-gray-600 mb-2">
-                                  Documents:
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                  {doctor.documents.map((doc, index) => (
-                                    <span
-                                      key={index}
-                                      className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs"
-                                    >
-                                      {doc}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex flex-col space-y-2">
-                            <Button variant="outline" size="sm">
-                              <Eye className="h-4 w-4 mr-2" />
-                              View Documents
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="bg-green-600 hover:bg-green-700"
+                {/* Main Content */}
+                <div className="flex-1 min-w-0">
+                  {/* Header */}
+                  <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-8"
+                  >
+                    <div className="bg-white/80 backdrop-blur-xl shadow-2xl border border-white/30 rounded-2xl p-6">
+                      <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+                        {navigationItems.find((item) => item.id === activeTab)
+                          ?.label || "Dashboard Overview"}
+                      </h1>
+                      <p className="text-gray-600">
+                        {activeTab === "overview"
+                          ? "Monitor and manage your medical platform"
+                          : `Manage ${navigationItems
+                              .find((item) => item.id === activeTab)
+                              ?.label?.toLowerCase()} in your system`}
+                      </p>
+                    </div>
+                  </motion.div>
+
+                  {/* Content Area */}
+                  <div className="space-y-6">
+                    {/* Overview Tab */}
+                    {activeTab === "overview" && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="space-y-6"
+                      >
+                        {/* Key Metrics */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                          {[
+                            {
+                              icon: Users,
+                              label: "Total Users",
+                              value: stats.totalUsers,
+                              color: "from-blue-500 to-cyan-500",
+                              change: "+12%",
+                            },
+                            {
+                              icon: Stethoscope,
+                              label: "Active Doctors",
+                              value: stats.totalDoctors,
+                              color: "from-green-500 to-emerald-500",
+                              change: "+5%",
+                            },
+                            {
+                              icon: Calendar,
+                              label: "Total Appointments",
+                              value: stats.totalAppointments,
+                              color: "from-purple-500 to-violet-500",
+                              change: "+23%",
+                            },
+                            {
+                              icon: DollarSign,
+                              label: "Monthly Revenue",
+                              value: formatCurrency(stats.monthlyRevenue),
+                              color: "from-orange-500 to-amber-500",
+                              change: "+18%",
+                            },
+                          ].map((metric, index) => (
+                            <motion.div
+                              key={metric.label}
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.1 }}
+                              whileHover={{ y: -5, scale: 1.02 }}
                             >
-                              <Check className="h-4 w-4 mr-2" />
-                              Approve
-                            </Button>
-                            <Button variant="destructive" size="sm">
-                              <X className="h-4 w-4 mr-2" />
-                              Reject
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Medicines Tab */}
-            {activeTab === "medicines" && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h1 className="text-3xl font-bold text-gray-900">
-                    Medicine Management
-                  </h1>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Medicine
-                  </Button>
-                </div>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Medicine Database</CardTitle>
-                    <CardDescription>
-                      Manage available medicines and their details
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Medicine
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Category
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Price
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Stock
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Prescription
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Actions
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {mockMedicines.map((medicine) => (
-                            <tr key={medicine.id}>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div>
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {medicine.name}
+                              <ResponsiveCard className="bg-white/80 backdrop-blur-xl shadow-2xl border border-white/30 p-6">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-sm font-medium text-gray-600 mb-1">
+                                      {metric.label}
+                                    </p>
+                                    <p className="text-3xl font-bold text-gray-900 mb-2">
+                                      {metric.value}
+                                    </p>
+                                    <div className="flex items-center">
+                                      <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
+                                      <span className="text-sm text-green-500 font-medium">
+                                        {metric.change}
+                                      </span>
+                                      <span className="text-sm text-gray-500 ml-1">
+                                        vs last month
+                                      </span>
+                                    </div>
                                   </div>
-                                  <div className="text-sm text-gray-500">
-                                    {medicine.genericName}
-                                  </div>
-                                  <div className="text-xs text-gray-400">
-                                    {medicine.manufacturer}
+                                  <div
+                                    className={`bg-gradient-to-r ${metric.color} rounded-2xl p-4`}
+                                  >
+                                    <metric.icon className="h-8 w-8 text-white" />
                                   </div>
                                 </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="text-sm text-gray-900">
-                                  {medicine.category}
-                                </span>
-                                <div className="text-xs text-gray-500">
-                                  {medicine.strength}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {formatCurrency(medicine.price)}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span
-                                  className={`text-sm ${
-                                    medicine.stock > 100
-                                      ? "text-green-600"
-                                      : medicine.stock > 50
-                                      ? "text-yellow-600"
-                                      : "text-red-600"
-                                  }`}
-                                >
-                                  {medicine.stock}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span
-                                  className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                    medicine.prescriptionRequired
-                                      ? "bg-red-100 text-red-800"
-                                      : "bg-green-100 text-green-800"
-                                  }`}
-                                >
-                                  {medicine.prescriptionRequired
-                                    ? "Required"
-                                    : "Not Required"}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="mr-2"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button variant="outline" size="sm">
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                              </td>
-                            </tr>
+                              </ResponsiveCard>
+                            </motion.div>
                           ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+                        </div>
 
-            {/* Lab Packages Tab */}
-            {activeTab === "lab-packages" && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h1 className="text-3xl font-bold text-gray-900">
-                    Lab Package Management
-                  </h1>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Package
-                  </Button>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {mockLabPackages.map((pkg) => (
-                    <Card key={pkg.id}>
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-lg">{pkg.name}</CardTitle>
-                          <div className="flex items-center space-x-2">
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                pkg.isActive
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-gray-100 text-gray-800"
-                              }`}
+                        {/* Quick Actions */}
+                        <ResponsiveCard className="bg-white/80 backdrop-blur-xl shadow-2xl border border-white/30 p-6">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                            Quick Actions
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              onClick={() => setActiveTab("users")}
+                              className="p-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl text-left"
                             >
-                              {pkg.isActive ? "Active" : "Inactive"}
-                            </span>
-                            <Button variant="outline" size="sm">
-                              <Edit className="h-4 w-4" />
-                            </Button>
+                              <Users className="h-6 w-6 mb-2" />
+                              <p className="font-medium">Manage Users</p>
+                              <p className="text-sm opacity-80">
+                                User roles & profiles
+                              </p>
+                            </motion.button>
+
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              onClick={() => setActiveTab("doctors")}
+                              className="p-4 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-xl text-left"
+                            >
+                              <Stethoscope className="h-6 w-6 mb-2" />
+                              <p className="font-medium">Manage Doctors</p>
+                              <p className="text-sm opacity-80">
+                                Add or verify doctors
+                              </p>
+                            </motion.button>
+
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              onClick={() => setActiveTab("medicines")}
+                              className="p-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl text-left"
+                            >
+                              <Pill className="h-6 w-6 mb-2" />
+                              <p className="font-medium">Medicine Inventory</p>
+                              <p className="text-sm opacity-80">
+                                Stock & categories
+                              </p>
+                            </motion.button>
+
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              onClick={() => setActiveTab("appointments")}
+                              className="p-4 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl text-left"
+                            >
+                              <Calendar className="h-6 w-6 mb-2" />
+                              <p className="font-medium">Appointments</p>
+                              <p className="text-sm opacity-80">
+                                Schedule & manage
+                              </p>
+                            </motion.button>
                           </div>
-                        </div>
-                        <CardDescription>{pkg.category}</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          <div className="flex justify-between">
-                            <span className="font-medium">Price:</span>
-                            <span className="text-lg font-bold text-blue-600">
-                              {formatCurrency(pkg.price)}
-                            </span>
+                        </ResponsiveCard>
+                      </motion.div>
+                    )}
+
+                    {/* Modular Components */}
+                    {activeTab === "users" && <UserManagement />}
+                    {activeTab === "doctors" && <DoctorManagement />}
+                    {activeTab === "doctor-verification" && (
+                      <DoctorVerificationTab />
+                    )}
+
+                    {activeTab === "medicines" && <MedicineManagement />}
+                    {activeTab === "categories" && <CategoryManagement />}
+                    {activeTab === "lab-packages" && <LabPackageManagement />}
+                    {activeTab === "lab-tests" && <LabTestManagement />}
+                    {activeTab === "orders" && <OrderManagement />}
+                    {activeTab === "reviews" && <ReviewManagement />}
+                    {activeTab === "specialties" && <SpecialtyManagement />}
+                    {activeTab === "stock-management" && <StockManagement />}
+                    {activeTab === "appointments" && <AppointmentManagement />}
+
+                    {/* Placeholder for other tabs */}
+                    {![
+                      "overview",
+                      "users",
+                      "doctors",
+                      "doctor-verification",
+                      "medicines",
+                      "categories",
+                      "lab-packages",
+                      "lab-tests",
+                      "orders",
+                      "reviews",
+                      "specialties",
+                      "stock-management",
+                      "appointments",
+                    ].includes(activeTab) && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="space-y-6"
+                      >
+                        <ResponsiveCard className="bg-white/80 backdrop-blur-xl shadow-2xl border border-white/30 p-12 text-center">
+                          <div className="text-6xl mb-4">🚧</div>
+                          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                            {
+                              navigationItems.find(
+                                (item) => item.id === activeTab
+                              )?.label
+                            }{" "}
+                            Management
+                          </h2>
+                          <p className="text-gray-600 mb-6">
+                            This section is under development. Full CRUD
+                            functionality will be available soon.
+                          </p>
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 max-w-md mx-auto">
+                            <p className="text-sm text-blue-800">
+                              <strong>Available CRUD Components:</strong> Users,
+                              Doctors, Medicines, Appointments, and Stock
+                              Management with complete Create, Read, Update,
+                              Delete operations.
+                            </p>
                           </div>
-                          <div>
-                            <span className="font-medium">Tests Included:</span>
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {pkg.testsIncluded.map((test, index) => (
-                                <span
-                                  key={index}
-                                  className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs"
-                                >
-                                  {test}
-                                </span>
-                              ))}
-                            </div>
+                          <div className="flex justify-center space-x-4">
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              onClick={() => setActiveTab("overview")}
+                              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg"
+                            >
+                              Back to Overview
+                            </motion.button>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="font-medium">Reporting Time:</span>
-                            <span>{pkg.reportingTime}</span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </ResponsiveCard>
+                      </motion.div>
+                    )}
+                  </div>
                 </div>
               </div>
-            )}
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      </ResponsiveLayout>
+    </>
   );
 }

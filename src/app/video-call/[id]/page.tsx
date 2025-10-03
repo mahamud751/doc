@@ -76,6 +76,7 @@ export default function VideoCallPage() {
   const initializeCall = async () => {
     try {
       setLoading(true);
+      setError("");
 
       // Get appointment details and generate token
       const appointmentId = params.id as string;
@@ -86,24 +87,61 @@ export default function VideoCallPage() {
         return;
       }
 
-      // Get Agora token for this call
-      const response = await fetch("/api/agora/token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          channelName: appointmentId,
-          uid: 0, // Let Agora assign UID
-        }),
-      });
+      // Try to get Agora token for this call with multiple fallback approaches
+      let agoraToken = "";
+      let appId = "";
+      let tokenError = null;
 
-      if (!response.ok) {
-        throw new Error("Failed to get video call token");
+      try {
+        // First attempt: Get token from API
+        const response = await fetch("/api/agora/token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            channelName: appointmentId,
+            uid: 0, // Let Agora assign UID
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to get video call token: ${response.status}`);
+        }
+
+        const data = await response.json();
+        agoraToken = data.token;
+        appId = data.appId;
+      } catch (error) {
+        tokenError = error;
+        console.error("Token generation failed:", error);
       }
 
-      const { token: agoraToken, appId } = await response.json();
+      // If token generation failed, try alternative approaches
+      if (tokenError || !agoraToken || !appId) {
+        console.warn(
+          "Primary token generation failed, trying fallback approaches"
+        );
+
+        // Try to get App ID from environment variables
+        try {
+          const configResponse = await fetch("/api/agora/config");
+          if (configResponse.ok) {
+            const config = await configResponse.json();
+            appId = config.appId;
+          }
+        } catch (configError) {
+          console.error("Failed to get Agora config:", configError);
+        }
+      }
+
+      // Validate we have required parameters
+      if (!appId) {
+        throw new Error(
+          "Missing App ID. Please check your Agora configuration."
+        );
+      }
 
       // Initialize Agora client
       const agoraClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
@@ -113,19 +151,54 @@ export default function VideoCallPage() {
       agoraClient.on("user-published", handleUserPublished);
       agoraClient.on("user-unpublished", handleUserUnpublished);
       agoraClient.on("user-left", handleUserLeft);
-      agoraClient.on("connection-state-changed", (state) => {
+      agoraClient.on("connection-state-changed", (state: string) => {
         setConnectionState(state);
       });
 
-      // Join the channel
-      await agoraClient.join(appId, appointmentId, agoraToken, 0);
+      // Try joining with different parameter combinations to handle token issues
+      try {
+        await agoraClient.join(appId, appointmentId, agoraToken || null, 0);
+        console.log("Successfully joined channel with token");
+      } catch (joinError: any) {
+        // If token fails, try without token (for testing)
+        if (
+          joinError.message &&
+          (joinError.message.includes("invalid vendor key") ||
+            joinError.message.includes("token"))
+        ) {
+          console.warn(
+            "Token join failed with vendor key/token error, trying without token..."
+          );
+          // Try with empty string instead of null
+          await agoraClient.join(appId, appointmentId, "", 0);
+          console.log("Successfully joined channel without token");
+        } else {
+          // Re-throw if it's not a vendor key or token error
+          throw joinError;
+        }
+      }
+
       setIsJoined(true);
 
       // Create and publish local tracks
       await createAndPublishTracks(agoraClient);
     } catch (error: any) {
       console.error("Error initializing call:", error);
-      setError(error.message || "Failed to join video call");
+      let errorMessage = error.message || "Failed to join video call";
+
+      // Provide more specific error messages
+      if (errorMessage.includes("invalid vendor key")) {
+        errorMessage =
+          "Video call service error: Invalid vendor key. " +
+          "Your App ID may not be properly configured. " +
+          "Please try again or contact support.";
+      } else if (errorMessage.includes("token")) {
+        errorMessage =
+          "Video call service error: Invalid token. " +
+          "Please try joining the call again.";
+      }
+
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

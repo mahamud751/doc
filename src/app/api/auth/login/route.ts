@@ -45,19 +45,42 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if doctor is verified
-    if (
-      user.role === "DOCTOR" &&
-      (!user.doctor_profile?.verification ||
-        user.doctor_profile.verification.status !== "APPROVED")
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Doctor profile is not verified yet. Please wait for admin approval.",
-          status: "pending_verification",
-        },
-        { status: 403 }
-      );
+    if (user.role === "DOCTOR") {
+      // Check if doctor has a profile and verification record
+      if (!user.doctor_profile?.verification) {
+        return NextResponse.json(
+          {
+            error:
+              "Doctor profile is not verified yet. Please wait for admin approval.",
+            status: "pending_verification",
+          },
+          { status: 403 }
+        );
+      }
+
+      // Check verification status
+      if (user.doctor_profile.verification.status !== "APPROVED") {
+        return NextResponse.json(
+          {
+            error:
+              "Doctor profile is not verified yet. Please wait for admin approval.",
+            status: "pending_verification",
+          },
+          { status: 403 }
+        );
+      }
+
+      // For doctors, also check if account is active
+      if (!user.is_active) {
+        return NextResponse.json(
+          {
+            error:
+              "Doctor account is not active yet. Please wait for admin approval.",
+            status: "inactive",
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // Generate JWT token

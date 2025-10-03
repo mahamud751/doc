@@ -11,10 +11,22 @@ import {
   User,
   Phone,
   ArrowLeft,
+  Sparkles,
+  Shield,
+  CheckCircle,
+  Zap,
+  Heart,
+  Brain,
+  Award,
+  TrendingUp,
+  MessageCircle,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
+import NavigationHeader from "@/components/NavigationHeader";
 
 interface Doctor {
   id: string;
@@ -29,6 +41,21 @@ interface Doctor {
   avatar_url?: string;
   is_available_online: boolean;
   next_available_slots: any[];
+  avatar: string;
+  hospital: string;
+  languages: string[];
+  doctor_profile?: {
+    specialties?: string[];
+    qualifications?: string[];
+    experience_years?: number;
+    consultation_fee?: number;
+    rating?: number;
+    total_reviews?: number;
+    bio?: string;
+    is_available_online?: boolean;
+    hospital?: string;
+    languages?: string[];
+  };
 }
 
 interface TimeSlot {
@@ -51,6 +78,9 @@ export default function BookDoctorPage() {
   const [authToken, setAuthToken] = useState("");
   const [userRole, setUserRole] = useState("");
   const [error, setError] = useState("");
+  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+
+  // Remove mock doctor data - will fetch from API
 
   // Generate time slots for the selected date
   const generateTimeSlots = (): TimeSlot[] => {
@@ -62,7 +92,7 @@ export default function BookDoctorPage() {
           .padStart(2, "0")}`;
         slots.push({
           time,
-          available: Math.random() > 0.3, // Random availability for demo
+          available: true, // Will be updated with real availability
         });
       }
     }
@@ -88,8 +118,35 @@ export default function BookDoctorPage() {
 
     setAuthToken(token);
     setUserRole(role);
-    fetchDoctor(token, doctorId);
+
+    // Fetch real doctor data from API
+    fetchDoctor();
   }, [doctorId]);
+
+  const fetchDoctor = async () => {
+    try {
+      setFetchingDoctor(true);
+      const token = localStorage.getItem("authToken");
+
+      const response = await fetch(`/api/doctors/${doctorId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch doctor");
+      }
+
+      const data = await response.json();
+      setDoctor(data.doctor || null);
+    } catch (error: any) {
+      console.error("Error fetching doctor:", error);
+      setError(error.message || "Failed to load doctor");
+    } finally {
+      setFetchingDoctor(false);
+    }
+  };
 
   useEffect(() => {
     if (selectedDate) {
@@ -97,30 +154,6 @@ export default function BookDoctorPage() {
       setSelectedTime("");
     }
   }, [selectedDate]);
-
-  const fetchDoctor = async (token: string, id: string) => {
-    try {
-      setFetchingDoctor(true);
-
-      const response = await fetch(`/api/doctors/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch doctor details");
-      }
-
-      const data = await response.json();
-      setDoctor(data.doctor);
-    } catch (error: any) {
-      setError(error.message);
-      console.error("Error fetching doctor:", error);
-    } finally {
-      setFetchingDoctor(false);
-    }
-  };
 
   const handleBookAppointment = async () => {
     if (!doctor || !selectedDate || !selectedTime) {
@@ -132,33 +165,36 @@ export default function BookDoctorPage() {
     setError("");
 
     try {
+      const token = localStorage.getItem("authToken");
+
       const response = await fetch("/api/appointments", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          doctor_id: doctor.id,
-          appointment_date: selectedDate,
-          appointment_time: selectedTime,
-          consultation_type: "video",
-          symptoms,
-          notes,
+          doctorId: doctor.id,
+          patientId: localStorage.getItem("userId"),
+          appointmentDate: selectedDate,
+          appointmentTime: selectedTime,
+          reason: symptoms,
+          notes: notes,
+          type: "VIDEO",
         }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || "Failed to book appointment");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to book appointment");
       }
 
-      // Store appointment details for easy access
-      localStorage.setItem("lastAppointment", JSON.stringify(data.appointment));
+      const data = await response.json();
 
-      // Redirect to success page or patient dashboard
-      router.push("/patient/appointments?booking=success");
+      // Redirect to success page with appointment ID
+      router.push(
+        `/patient/appointments?booking=success&appointmentId=${data.appointment.id}`
+      );
     } catch (error: any) {
       setError(error.message);
     } finally {
@@ -181,6 +217,7 @@ export default function BookDoctorPage() {
           day: "numeric",
         }),
         isToday: i === 0,
+        isTomorrow: i === 1,
       });
     }
     return dates;
@@ -188,17 +225,60 @@ export default function BookDoctorPage() {
 
   const availableDates = generateAvailableDates();
 
+  const doctorStats = [
+    {
+      label: "Experience",
+      value: `${doctor?.experience_years}+ years`,
+      icon: TrendingUp,
+    },
+    { label: "Success Rate", value: "98%", icon: Award },
+    { label: "Patients", value: "2.5k+", icon: User },
+    {
+      label: "Languages",
+      value: doctor?.languages.length || 0,
+      icon: MessageCircle,
+    },
+  ];
+
   if (fetchingDoctor) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center relative overflow-hidden">
+        <div className="absolute inset-0">
+          <div className="absolute top-0 left-0 w-96 h-96 bg-blue-300/10 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-300/10 rounded-full blur-3xl animate-pulse delay-1000" />
+        </div>
+        <div className="relative z-10 text-center">
+          <motion.div
+            animate={{
+              rotate: 360,
+              scale: [1, 1.2, 1],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+            className="relative mx-auto mb-6"
+          >
+            <div className="h-24 w-24 border-4 border-blue-500/30 border-t-blue-600 rounded-full" />
+            <div className="absolute inset-0 h-24 w-24 border-4 border-transparent border-t-purple-500 rounded-full animate-spin" />
+            <User className="absolute inset-0 m-auto w-10 h-10 text-blue-600" />
+          </motion.div>
+          <motion.h2
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
+          >
+            Loading Doctor Profile...
+          </motion.h2>
+        </div>
       </div>
     );
   }
 
   if (!doctor) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">
             Doctor Not Found
@@ -208,7 +288,9 @@ export default function BookDoctorPage() {
             available.
           </p>
           <Link href="/doctors">
-            <Button>Find Other Doctors</Button>
+            <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+              Find Other Doctors
+            </Button>
           </Link>
         </div>
       </div>
@@ -216,226 +298,491 @@ export default function BookDoctorPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link href="/doctors">
-                <Button variant="outline" size="sm">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Doctors
-                </Button>
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Book Appointment with Dr. {doctor.name}
-                </h1>
-                <p className="text-gray-600">
-                  Schedule your video consultation
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 relative overflow-hidden">
+      {/* Enhanced Animated Background */}
+      <div className="absolute inset-0">
+        <motion.div
+          animate={{
+            background: [
+              "radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 50%)",
+              "radial-gradient(circle at 80% 20%, rgba(168, 85, 247, 0.05) 0%, transparent 50%)",
+              "radial-gradient(circle at 40% 80%, rgba(14, 165, 233, 0.05) 0%, transparent 50%)",
+              "radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 50%)",
+            ],
+          }}
+          transition={{ duration: 15, repeat: Infinity }}
+          className="absolute inset-0"
+        />
+        <motion.div
+          animate={{
+            x: [0, 100, 0],
+            y: [0, 50, 0],
+          }}
+          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-0 left-0 w-96 h-96 bg-blue-300/10 rounded-full blur-3xl"
+        />
+        <motion.div
+          animate={{
+            x: [0, -100, 0],
+            y: [0, -50, 0],
+          }}
+          transition={{ duration: 30, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute bottom-0 right-0 w-96 h-96 bg-purple-300/10 rounded-full blur-3xl"
+        />
+      </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md mb-6">
-            {error}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Doctor Information */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Doctor Profile */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex items-start space-x-6">
-                <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                  <User className="w-12 h-12 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                    Dr. {doctor.name}
-                  </h2>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {doctor.specialties.map((specialty, index) => (
-                      <span
-                        key={index}
-                        className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
-                      >
-                        {specialty}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="flex items-center space-x-4 text-sm text-gray-600 mb-4">
-                    <div className="flex items-center">
-                      <Star className="w-4 h-4 text-yellow-400 mr-1" />
-                      <span>
-                        {doctor.rating} ({doctor.total_reviews} reviews)
-                      </span>
-                    </div>
-                    <div className="flex items-center">
-                      <Clock className="w-4 h-4 mr-1" />
-                      <span>{doctor.experience_years} years experience</span>
-                    </div>
-                  </div>
-                  <p className="text-gray-700 text-sm">{doctor.bio}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Date Selection */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-lg font-semibold mb-4">Select Date</h3>
-              <div className="grid grid-cols-7 gap-2">
-                {availableDates.map((date) => (
-                  <button
-                    key={date.value}
-                    onClick={() => setSelectedDate(date.value)}
-                    className={`p-3 text-center rounded-lg border transition-colors ${
-                      selectedDate === date.value
-                        ? "border-blue-500 bg-blue-50 text-blue-700"
-                        : "border-gray-200 hover:border-gray-300"
-                    } ${date.isToday ? "bg-yellow-50" : ""}`}
+      <div className="relative z-10 p-6 pt-24">
+        <div className="max-w-7xl mx-auto">
+          {/* Enhanced Header */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/30 p-8 mb-8"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-6">
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Link href="/doctors">
+                    <Button
+                      variant="outline"
+                      className="rounded-full border-2 px-6"
+                    >
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      Back to Doctors
+                    </Button>
+                  </Link>
+                </motion.div>
+                <div>
+                  <motion.h1
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2"
                   >
-                    <div className="text-sm font-medium">{date.label}</div>
-                    {date.isToday && (
-                      <div className="text-xs text-yellow-600 mt-1">Today</div>
-                    )}
-                  </button>
-                ))}
+                    Book with Dr. {doctor.name}
+                  </motion.h1>
+                  <motion.p
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="text-gray-600 text-lg"
+                  >
+                    Schedule your secure video consultation with an expert
+                    specialist
+                  </motion.p>
+                </div>
               </div>
             </div>
+          </motion.div>
 
-            {/* Time Selection */}
-            {selectedDate && (
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h3 className="text-lg font-semibold mb-4">Select Time</h3>
-                <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
-                  {timeSlots.map((slot) => (
-                    <button
-                      key={slot.time}
-                      onClick={() =>
-                        slot.available && setSelectedTime(slot.time)
-                      }
-                      disabled={!slot.available}
-                      className={`p-3 text-sm text-center rounded-lg border transition-colors ${
-                        selectedTime === slot.time
-                          ? "border-blue-500 bg-blue-50 text-blue-700"
-                          : slot.available
-                          ? "border-gray-200 hover:border-gray-300"
-                          : "border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed"
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 text-red-600 px-6 py-4 rounded-2xl mb-6 shadow-lg"
+              >
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Doctor Information & Booking */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="lg:col-span-2 space-y-8"
+            >
+              {/* Enhanced Doctor Profile */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/30 p-8"
+              >
+                <div className="flex items-start space-x-8">
+                  <motion.div
+                    whileHover={{ scale: 1.1, rotate: 5 }}
+                    className="text-6xl"
+                  >
+                    {doctor.avatar}
+                  </motion.div>
+                  <div className="flex-1">
+                    <div className="flex items-start justify-between mb-6">
+                      <div>
+                        <h2 className="text-3xl font-bold text-gray-900 mb-3">
+                          Dr. {doctor.name}
+                        </h2>
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {doctor.specialties.map((specialty, index) => (
+                            <motion.span
+                              key={index}
+                              initial={{ opacity: 0, scale: 0.9 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ delay: index * 0.1 }}
+                              whileHover={{ scale: 1.05 }}
+                              className="bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 px-4 py-2 rounded-full text-sm font-semibold border border-blue-200"
+                            >
+                              {specialty}
+                            </motion.span>
+                          ))}
+                        </div>
+                      </div>
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="text-right"
+                      >
+                        <div className="flex items-center space-x-2 mb-2 justify-end">
+                          <Star className="w-5 h-5 text-yellow-400 fill-current" />
+                          <span className="font-bold text-gray-900 text-xl">
+                            {doctor.rating}
+                          </span>
+                          <span className="text-gray-600">
+                            ({doctor.total_reviews} reviews)
+                          </span>
+                        </div>
+                        <motion.div
+                          whileHover={{ scale: 1.05 }}
+                          className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent"
+                        >
+                          ${doctor.consultation_fee}
+                        </motion.div>
+                      </motion.div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                      {doctorStats.map((stat, index) => (
+                        <motion.div
+                          key={stat.label}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.3 + index * 0.1 }}
+                          whileHover={{ y: -5, scale: 1.02 }}
+                          className="bg-gradient-to-br from-gray-50 to-blue-50 rounded-2xl p-4 text-center border border-gray-200"
+                        >
+                          <stat.icon className="w-6 h-6 text-blue-600 mx-auto mb-2" />
+                          <div className="text-2xl font-bold text-gray-900">
+                            {stat.value}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {stat.label}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="font-semibold text-gray-900 mb-2">
+                          About Dr. {doctor.name}
+                        </h4>
+                        <p className="text-gray-700 leading-relaxed">
+                          {doctor.bio}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center space-x-6 text-sm text-gray-600">
+                        <div className="flex items-center">
+                          <MapPin className="w-4 h-4 mr-2 text-blue-500" />
+                          <span>{doctor.hospital}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <Video className="w-4 h-4 mr-2 text-green-500" />
+                          <span>Video Consultation Available</span>
+                        </div>
+                        <div className="flex items-center">
+                          <Shield className="w-4 h-4 mr-2 text-purple-500" />
+                          <span>Verified Doctor</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-4">
+                        <span className="text-sm font-medium text-gray-700">
+                          Languages:
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          {doctor.languages.map((language, index) => (
+                            <span
+                              key={index}
+                              className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm"
+                            >
+                              {language}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Date Selection */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/30 p-8"
+              >
+                <h3 className="text-2xl font-bold text-gray-900 mb-6">
+                  Select Date
+                </h3>
+                <div className="grid grid-cols-7 gap-3">
+                  {availableDates.map((date, index) => (
+                    <motion.button
+                      key={date.value}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.3 + index * 0.05 }}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setSelectedDate(date.value)}
+                      className={`p-4 text-center text-black rounded-2xl border-2 transition-all duration-200 ${
+                        selectedDate === date.value
+                          ? "border-blue-500 bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 shadow-lg"
+                          : "border-gray-200 bg-white hover:border-blue-300 hover:shadow-md"
+                      } ${
+                        date.isToday
+                          ? "bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-300"
+                          : ""
+                      } ${
+                        date.isTomorrow
+                          ? "bg-gradient-to-r from-green-50 to-emerald-50 border-green-300"
+                          : ""
                       }`}
                     >
-                      {slot.time}
-                    </button>
+                      <div className="text-lg font-semibold">
+                        {date.label.split(" ")[0]}
+                      </div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        {date.label.split(" ").slice(1).join(" ")}
+                      </div>
+                      {date.isToday && (
+                        <div className="text-xs text-yellow-600 font-medium mt-2">
+                          Today
+                        </div>
+                      )}
+                      {date.isTomorrow && (
+                        <div className="text-xs text-green-600 font-medium mt-2">
+                          Tomorrow
+                        </div>
+                      )}
+                    </motion.button>
                   ))}
                 </div>
-              </div>
-            )}
+              </motion.div>
 
-            {/* Symptoms & Notes */}
-            {selectedDate && selectedTime && (
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h3 className="text-lg font-semibold mb-4">
-                  Additional Information
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Symptoms (Optional)
-                    </label>
-                    <textarea
-                      value={symptoms}
-                      onChange={(e) => setSymptoms(e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      rows={3}
-                      placeholder="Describe your symptoms..."
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Additional Notes (Optional)
-                    </label>
-                    <textarea
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      rows={2}
-                      placeholder="Any additional information..."
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Booking Summary */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm p-6 sticky top-6">
-              <h3 className="text-lg font-semibold mb-4">Booking Summary</h3>
-
-              <div className="space-y-3 mb-6">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Doctor:</span>
-                  <span className="font-medium">Dr. {doctor.name}</span>
-                </div>
+              {/* Time Selection */}
+              <AnimatePresence>
                 {selectedDate && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Date:</span>
-                    <span className="font-medium">
-                      {new Date(selectedDate).toLocaleDateString("en-US", {
-                        weekday: "long",
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/30 p-8"
+                  >
+                    <h3 className="text-2xl font-bold text-gray-900 mb-6">
+                      Select Time
+                    </h3>
+                    <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
+                      {timeSlots.map((slot, index) => (
+                        <motion.button
+                          key={slot.time}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: index * 0.02 }}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() =>
+                            slot.available && setSelectedTime(slot.time)
+                          }
+                          disabled={!slot.available}
+                          className={`p-3 text-sm font-medium text-center rounded-xl border-2 transition-all duration-200 ${
+                            selectedTime === slot.time
+                              ? "border-blue-500 bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg"
+                              : slot.available
+                              ? "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:shadow-md"
+                              : "border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed"
+                          }`}
+                        >
+                          {slot.time}
+                        </motion.button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Symptoms & Notes */}
+              <AnimatePresence>
+                {selectedDate && selectedTime && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/30 p-8"
+                  >
+                    <h3 className="text-2xl font-bold text-gray-900 mb-6">
+                      Additional Information
+                    </h3>
+                    <div className="space-y-6">
+                      <div>
+                        <label className="block text-lg font-semibold text-gray-700 mb-3">
+                          Symptoms (Optional)
+                        </label>
+                        <motion.textarea
+                          whileFocus={{ scale: 1.01 }}
+                          value={symptoms}
+                          onChange={(e) => setSymptoms(e.target.value)}
+                          className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm resize-none"
+                          rows={4}
+                          placeholder="Describe your symptoms, duration, severity, and any triggers..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-lg font-semibold text-gray-700 mb-3">
+                          Additional Notes (Optional)
+                        </label>
+                        <motion.textarea
+                          whileFocus={{ scale: 1.01 }}
+                          value={notes}
+                          onChange={(e) => setNotes(e.target.value)}
+                          className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm resize-none"
+                          rows={3}
+                          placeholder="Any previous treatments, medications, allergies, or other concerns..."
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+
+            {/* Enhanced Booking Summary */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3 }}
+              className="lg:col-span-1"
+            >
+              <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/30 p-8 sticky top-8">
+                <h3 className="text-2xl font-bold text-gray-900 mb-6">
+                  Appointment Summary
+                </h3>
+
+                <div className="space-y-4 mb-6">
+                  <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl">
+                    <span className="text-gray-700 font-medium">Doctor:</span>
+                    <span className="font-semibold text-gray-900">
+                      Dr. {doctor.name}
                     </span>
                   </div>
-                )}
-                {selectedTime && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Time:</span>
-                    <span className="font-medium">{selectedTime}</span>
+
+                  {selectedDate && (
+                    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl">
+                      <span className="text-gray-700 font-medium">Date:</span>
+                      <span className="font-semibold text-gray-900">
+                        {new Date(selectedDate).toLocaleDateString("en-US", {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                    </div>
+                  )}
+
+                  {selectedTime && (
+                    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-violet-50 rounded-2xl">
+                      <span className="text-gray-700 font-medium">Time:</span>
+                      <span className="font-semibold text-gray-900">
+                        {selectedTime}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-slate-50 rounded-2xl">
+                    <span className="text-gray-700 font-medium">Type:</span>
+                    <span className="font-semibold text-gray-900 flex items-center">
+                      <Video className="w-4 h-4 mr-2 text-blue-500" />
+                      Video Consultation
+                    </span>
                   </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Type:</span>
-                  <span className="font-medium">Video Consultation</span>
+
+                  <div className="flex items-center justify-between p-4 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-2xl">
+                    <span className="text-gray-700 font-medium">
+                      Consultation Fee:
+                    </span>
+                    <span className="font-bold text-green-600 text-xl">
+                      ${doctor.consultation_fee}
+                    </span>
+                  </div>
+
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5 }}
+                    className="flex justify-between items-center pt-4 border-t-2 border-gray-200"
+                  >
+                    <span className="text-xl font-bold text-gray-900">
+                      Total:
+                    </span>
+                    <span className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                      ${doctor.consultation_fee}
+                    </span>
+                  </motion.div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Consultation Fee:</span>
-                  <span className="font-medium text-green-600">
-                    ${doctor.consultation_fee}
-                  </span>
-                </div>
-                <hr className="my-3" />
-                <div className="flex justify-between font-semibold">
-                  <span>Total:</span>
-                  <span className="text-green-600">
-                    ${doctor.consultation_fee}
-                  </span>
+
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="mb-6"
+                >
+                  <Button
+                    onClick={handleBookAppointment}
+                    disabled={loading || !selectedDate || !selectedTime}
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-2xl py-4 text-lg font-bold shadow-lg hover:shadow-xl transition-all"
+                  >
+                    {loading ? (
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{
+                          duration: 1,
+                          repeat: Infinity,
+                          ease: "linear",
+                        }}
+                        className="w-6 h-6 border-2 border-white border-t-transparent rounded-full"
+                      />
+                    ) : (
+                      <>
+                        <CheckCircle className="w-5 h-5 mr-2" />
+                        Confirm Booking
+                      </>
+                    )}
+                  </Button>
+                </motion.div>
+
+                <div className="space-y-3 text-sm text-gray-600">
+                  <div className="flex items-start space-x-2">
+                    <Video className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                    <p>Secure video consultation via encrypted connection</p>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <Calendar className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                    <p>Appointment confirmation sent via email & SMS</p>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <Clock className="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" />
+                    <p>Cancel or reschedule up to 2 hours before appointment</p>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <Shield className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                    <p>Your medical information is completely confidential</p>
+                  </div>
                 </div>
               </div>
-
-              <Button
-                onClick={handleBookAppointment}
-                disabled={loading || !selectedDate || !selectedTime}
-                className="w-full"
-              >
-                {loading ? "Booking..." : "Book Appointment"}
-              </Button>
-
-              <div className="mt-4 text-xs text-gray-500">
-                <p>
-                  • Video consultation will be conducted via secure video call
-                </p>
-                <p>• You will receive appointment confirmation via email</p>
-                <p>• Cancel or reschedule up to 2 hours before appointment</p>
-              </div>
-            </div>
+            </motion.div>
           </div>
         </div>
       </div>
