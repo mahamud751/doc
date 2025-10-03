@@ -70,10 +70,9 @@ export default function DoctorVideoCall() {
 
   useEffect(() => {
     // Validate required parameters
-    if (!channelName || !token || !uid || !appId) {
+    if (!channelName || !uid || !appId) {
       console.error("Missing required parameters:", {
         channelName,
-        token,
         uid,
         appId,
       });
@@ -257,8 +256,7 @@ export default function DoctorVideoCall() {
       console.log("Join parameters:", {
         appId,
         channelName,
-        token: token ? token.substring(0, 10) + "..." : "null",
-        uid: Number(uid),
+        uid,
       });
 
       // Validate parameters before joining
@@ -278,31 +276,100 @@ export default function DoctorVideoCall() {
           throw new Error("Invalid user ID format");
         }
 
-        // Try joining with different parameter combinations to handle vendor key issues
+        console.log("Attempting to join with UID:", uidNumber);
+        console.log("Full join parameters:", {
+          appId,
+          channelName,
+          token: token ? `${token.substring(0, 20)}...` : "null",
+          uid: uidNumber,
+        });
+
+        // Try joining with different parameter combinations to handle token issues
+        let joinSuccess = false;
+        let lastError: any = null;
+
+        // First try: with token from URL
         try {
+          console.log("Trying to join with token from URL...");
           await clientRef.current.join(
             appId,
             channelName,
             token || null,
             uidNumber
           );
-          console.log("Successfully joined channel with token");
+          joinSuccess = true;
+          console.log("Successfully joined channel with token from URL");
         } catch (tokenError: any) {
-          // If token fails, try without token (for testing)
+          console.error("Token join failed:", tokenError);
+          console.error("Token error details:", {
+            name: tokenError.name,
+            message: tokenError.message,
+            code: tokenError.code,
+          });
+          lastError = tokenError;
+
+          // If it's a token error, try with empty string
           if (
             tokenError.message &&
-            tokenError.message.includes("invalid vendor key")
+            (tokenError.message.includes("invalid vendor key") ||
+              tokenError.message.includes("Invalid token") ||
+              tokenError.message.includes("token") ||
+              tokenError.message.includes("Token") ||
+              tokenError.message.includes("CAN_NOT_GET_GATEWAY_SERVER"))
           ) {
-            console.warn(
-              "Token join failed with vendor key error, trying without token..."
-            );
-            // Try with empty string instead of null
-            await clientRef.current.join(appId, channelName, "", uidNumber);
-            console.log("Successfully joined channel without token");
-          } else {
-            // Re-throw if it's not a vendor key error
-            throw tokenError;
+            try {
+              console.log(
+                "Waiting 1 second before trying with empty string token..."
+              );
+              // Add a small delay before retrying
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+
+              console.log("Trying to join with empty string token...");
+              await clientRef.current.join(appId, channelName, "", uidNumber);
+              joinSuccess = true;
+              console.log("Successfully joined channel with empty token");
+            } catch (emptyTokenError: any) {
+              console.error("Empty token join failed:", emptyTokenError);
+              console.error("Empty token error details:", {
+                name: emptyTokenError.name,
+                message: emptyTokenError.message,
+                code: emptyTokenError.code,
+              });
+              lastError = emptyTokenError;
+
+              // Try one more approach - with null token
+              try {
+                console.log(
+                  "Waiting 1 second before trying with null token..."
+                );
+                // Add a small delay before retrying
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+
+                console.log("Trying to join with null token...");
+                await clientRef.current.join(
+                  appId,
+                  channelName,
+                  null,
+                  uidNumber
+                );
+                joinSuccess = true;
+                console.log("Successfully joined channel with null token");
+              } catch (nullTokenError: any) {
+                console.error("Null token join failed:", nullTokenError);
+                console.error("Null token error details:", {
+                  name: nullTokenError.name,
+                  message: nullTokenError.message,
+                  code: nullTokenError.code,
+                });
+                lastError = nullTokenError;
+              }
+            }
           }
+        }
+
+        // If all attempts failed, throw the last error
+        if (!joinSuccess) {
+          throw lastError;
         }
 
         console.log("Successfully joined channel");
@@ -320,11 +387,14 @@ export default function DoctorVideoCall() {
         // Provide more specific error messages
         if (
           joinError.message &&
-          joinError.message.includes("invalid vendor key")
+          (joinError.message.includes("invalid vendor key") ||
+            joinError.message.includes("CAN_NOT_GET_GATEWAY_SERVER"))
         ) {
+          // Try alternative approach for vendor key issues
           throw new Error(
-            "Invalid vendor key. Your App ID is not recognized by Agora servers. " +
-              "This could be due to project configuration issues."
+            "Invalid vendor key or gateway server error. Your App ID is not recognized by Agora servers. " +
+              "This could be due to project configuration issues or using a static key with dynamic token. " +
+              "Trying alternative connection method..."
           );
         } else if (
           joinError.message &&
@@ -334,7 +404,7 @@ export default function DoctorVideoCall() {
           throw new Error(
             "Invalid token. The token provided is not valid for this App ID or channel. " +
               "This could be due to an expired token, incorrect App ID, or server issues. " +
-              "Please try joining the call again."
+              "Please return to your dashboard and try joining the call again to get a new token."
           );
         } else if (joinError.message && joinError.message.includes("join")) {
           throw new Error(
@@ -397,11 +467,14 @@ export default function DoctorVideoCall() {
         console.error("Full error:", error);
 
         // If it's the specific vendor key error, provide more guidance
-        if (errorMessage.includes("invalid vendor key")) {
+        if (
+          errorMessage.includes("invalid vendor key") ||
+          errorMessage.includes("CAN_NOT_GET_GATEWAY_SERVER")
+        ) {
           setError(
-            "Video call service error: Invalid vendor key. " +
+            "Video call service error: Invalid vendor key or gateway server error. " +
               "Your App ID appears correct but Agora servers aren't recognizing it. " +
-              "This is often a temporary issue with Agora's servers. " +
+              "This is often a temporary issue with Agora's servers or using a static key with a dynamic token. " +
               "Please try these solutions:\n\n" +
               "1. Refresh the page and try again\n" +
               "2. Check your internet connection\n" +
@@ -410,16 +483,10 @@ export default function DoctorVideoCall() {
               "Technical details: " +
               errorMessage
           );
-        } else if (
-          errorMessage.includes("token") ||
-          errorMessage.includes("Token")
-        ) {
+        } else if (errorMessage.includes("token")) {
           setError(
             "Video call service error: Invalid token. " +
-              "The token may have expired or is not valid for this App ID/channel. " +
-              "Please return to your dashboard and try joining the call again.\n\n" +
-              "Technical details: " +
-              errorMessage
+              "Please try joining the call again."
           );
         } else {
           setError(`Failed to initialize video call: ${errorMessage}`);
@@ -487,10 +554,14 @@ export default function DoctorVideoCall() {
                 <li>The project has been suspended or deactivated</li>
                 <li>The App ID belongs to a different Agora account</li>
                 <li>The App ID has been revoked or is invalid</li>
+                <li>
+                  You're using a static key with a dynamic token
+                  (CAN_NOT_GET_GATEWAY_SERVER)
+                </li>
               </ul>
               <p>
                 <strong>Solution:</strong> Create a new Agora project and update
-                your environment variables. For detailed debugging, visit:
+                your environment variables. For detailed debugging, visit:{" "}
                 <a
                   href="/agora-debug"
                   className="text-blue-300 hover:text-blue-100 underline"
@@ -499,6 +570,28 @@ export default function DoctorVideoCall() {
                 >
                   /agora-debug
                 </a>
+              </p>
+            </div>
+          )}
+
+          {(error.includes("token") || error.includes("Token")) && (
+            <div className="mb-6 p-4 bg-yellow-900 rounded-lg">
+              <h2 className="font-bold mb-2">Token Issue:</h2>
+              <p className="mb-3">
+                The video call token appears to be invalid or expired. This can
+                happen when:
+              </p>
+              <ul className="text-left list-disc pl-5 mb-3 space-y-1">
+                <li>The token has expired (tokens are valid for 1 hour)</li>
+                <li>There was a network issue during token generation</li>
+                <li>The App ID or channel name has changed</li>
+                <li>There's a temporary issue with Agora's servers</li>
+              </ul>
+              <p>
+                <strong>Solution:</strong> Return to your dashboard and try
+                joining the call again. This will generate a fresh token. If the
+                problem persists, try refreshing the page or check your internet
+                connection.
               </p>
             </div>
           )}
@@ -526,7 +619,7 @@ export default function DoctorVideoCall() {
   }
 
   // Show parameter validation state
-  if (!channelName || !token || !uid || !appId) {
+  if (!channelName || !uid || !appId) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center text-white">

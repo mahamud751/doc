@@ -96,6 +96,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if App ID contains only valid characters
+    const hexRegex = /^[0-9a-fA-F]+$/;
+    if (!hexRegex.test(appId)) {
+      console.error("Invalid App ID characters");
+      return NextResponse.json(
+        {
+          error:
+            "Invalid App ID format. App ID should only contain hexadecimal characters",
+        },
+        { status: 500 }
+      );
+    }
+
+    // Check if Certificate contains only valid characters
+    if (!hexRegex.test(appCertificate)) {
+      console.error("Invalid Certificate characters");
+      return NextResponse.json(
+        {
+          error:
+            "Invalid Certificate format. Certificate should only contain hexadecimal characters",
+        },
+        { status: 500 }
+      );
+    }
+
     // Token expires in 1 hour
     const expirationTimeInSeconds = Math.floor(Date.now() / 1000) + 3600;
 

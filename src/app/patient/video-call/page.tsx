@@ -70,10 +70,9 @@ export default function PatientVideoCall() {
 
   useEffect(() => {
     // Validate required parameters
-    if (!channelName || !token || !uid || !appId) {
+    if (!channelName || !uid || !appId) {
       console.error("Missing required parameters:", {
         channelName,
-        token,
         uid,
         appId,
       });
@@ -266,8 +265,7 @@ export default function PatientVideoCall() {
       console.log("Join parameters:", {
         appId,
         channelName,
-        token: token ? token.substring(0, 10) + "..." : "null",
-        uid: Number(uid),
+        uid,
       });
 
       // Validate parameters before joining
@@ -299,9 +297,9 @@ export default function PatientVideoCall() {
         let joinSuccess = false;
         let lastError: any = null;
 
-        // First try: with token
+        // First try: with token from URL
         try {
-          console.log("Trying to join with token...");
+          console.log("Trying to join with token from URL...");
           await clientRef.current.join(
             appId,
             channelName,
@@ -309,7 +307,7 @@ export default function PatientVideoCall() {
             uidNumber
           );
           joinSuccess = true;
-          console.log("Successfully joined channel with token");
+          console.log("Successfully joined channel with token from URL");
         } catch (tokenError: any) {
           console.error("Token join failed:", tokenError);
           console.error("Token error details:", {
@@ -325,7 +323,8 @@ export default function PatientVideoCall() {
             (tokenError.message.includes("invalid vendor key") ||
               tokenError.message.includes("Invalid token") ||
               tokenError.message.includes("token") ||
-              tokenError.message.includes("Token"))
+              tokenError.message.includes("Token") ||
+              tokenError.message.includes("CAN_NOT_GET_GATEWAY_SERVER"))
           ) {
             try {
               console.log(
@@ -397,12 +396,13 @@ export default function PatientVideoCall() {
         // Provide more specific error messages
         if (
           joinError.message &&
-          joinError.message.includes("invalid vendor key")
+          (joinError.message.includes("invalid vendor key") ||
+            joinError.message.includes("CAN_NOT_GET_GATEWAY_SERVER"))
         ) {
           // Try alternative approach for vendor key issues
           throw new Error(
-            "Invalid vendor key. Your App ID is not recognized by Agora servers. " +
-              "This could be due to project configuration issues. " +
+            "Invalid vendor key or gateway server error. Your App ID is not recognized by Agora servers. " +
+              "This could be due to project configuration issues or using a static key with dynamic token. " +
               "Trying alternative connection method..."
           );
         } else if (
@@ -476,11 +476,14 @@ export default function PatientVideoCall() {
         console.error("Full error:", error);
 
         // If it's the specific vendor key error, provide more guidance
-        if (errorMessage.includes("invalid vendor key")) {
+        if (
+          errorMessage.includes("invalid vendor key") ||
+          errorMessage.includes("CAN_NOT_GET_GATEWAY_SERVER")
+        ) {
           setError(
-            "Video call service error: Invalid vendor key. " +
+            "Video call service error: Invalid vendor key or gateway server error. " +
               "Your App ID appears correct but Agora servers aren't recognizing it. " +
-              "This is often a temporary issue with Agora's servers. " +
+              "This is often a temporary issue with Agora's servers or using a static key with a dynamic token. " +
               "Please try these solutions:\n\n" +
               "1. Refresh the page and try again\n" +
               "2. Check your internet connection\n" +
@@ -560,6 +563,10 @@ export default function PatientVideoCall() {
                 <li>The project has been suspended or deactivated</li>
                 <li>The App ID belongs to a different Agora account</li>
                 <li>The App ID has been revoked or is invalid</li>
+                <li>
+                  You're using a static key with a dynamic token
+                  (CAN_NOT_GET_GATEWAY_SERVER)
+                </li>
               </ul>
               <p>
                 <strong>Solution:</strong> Create a new Agora project and update
@@ -621,7 +628,7 @@ export default function PatientVideoCall() {
   }
 
   // Show parameter validation state
-  if (!channelName || !token || !uid || !appId) {
+  if (!channelName || !uid || !appId) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center text-white">
