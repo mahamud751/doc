@@ -88,6 +88,15 @@ export default function PatientVideoCall() {
       return;
     }
 
+    // Log all parameters for debugging
+    console.log("Video call parameters received:", {
+      channelName,
+      token: token ? `${token.substring(0, 20)}...` : "null",
+      uid,
+      appId: appId ? `${appId.substring(0, 8)}...` : "null",
+      appIdLength: appId.length,
+    });
+
     // Validate App ID format
     if (appId.length !== 32) {
       console.error("Invalid App ID length:", appId.length);
@@ -278,12 +287,21 @@ export default function PatientVideoCall() {
           throw new Error("Invalid user ID format");
         }
 
-        // Try joining with different parameter combinations to handle vendor key issues
+        console.log("Attempting to join with UID:", uidNumber);
+        console.log("Full join parameters:", {
+          appId,
+          channelName,
+          token: token ? `${token.substring(0, 20)}...` : "null",
+          uid: uidNumber,
+        });
+
+        // Try joining with different parameter combinations to handle token issues
         let joinSuccess = false;
         let lastError: any = null;
 
         // First try: with token
         try {
+          console.log("Trying to join with token...");
           await clientRef.current.join(
             appId,
             channelName,
@@ -294,6 +312,11 @@ export default function PatientVideoCall() {
           console.log("Successfully joined channel with token");
         } catch (tokenError: any) {
           console.error("Token join failed:", tokenError);
+          console.error("Token error details:", {
+            name: tokenError.name,
+            message: tokenError.message,
+            code: tokenError.code,
+          });
           lastError = tokenError;
 
           // If it's a token error, try with empty string
@@ -301,16 +324,55 @@ export default function PatientVideoCall() {
             tokenError.message &&
             (tokenError.message.includes("invalid vendor key") ||
               tokenError.message.includes("Invalid token") ||
-              tokenError.message.includes("token"))
+              tokenError.message.includes("token") ||
+              tokenError.message.includes("Token"))
           ) {
             try {
+              console.log(
+                "Waiting 1 second before trying with empty string token..."
+              );
+              // Add a small delay before retrying
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+
               console.log("Trying to join with empty string token...");
               await clientRef.current.join(appId, channelName, "", uidNumber);
               joinSuccess = true;
               console.log("Successfully joined channel with empty token");
             } catch (emptyTokenError: any) {
               console.error("Empty token join failed:", emptyTokenError);
+              console.error("Empty token error details:", {
+                name: emptyTokenError.name,
+                message: emptyTokenError.message,
+                code: emptyTokenError.code,
+              });
               lastError = emptyTokenError;
+
+              // Try one more approach - with null token
+              try {
+                console.log(
+                  "Waiting 1 second before trying with null token..."
+                );
+                // Add a small delay before retrying
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+
+                console.log("Trying to join with null token...");
+                await clientRef.current.join(
+                  appId,
+                  channelName,
+                  null,
+                  uidNumber
+                );
+                joinSuccess = true;
+                console.log("Successfully joined channel with null token");
+              } catch (nullTokenError: any) {
+                console.error("Null token join failed:", nullTokenError);
+                console.error("Null token error details:", {
+                  name: nullTokenError.name,
+                  message: nullTokenError.message,
+                  code: nullTokenError.code,
+                });
+                lastError = nullTokenError;
+              }
             }
           }
         }
@@ -351,7 +413,7 @@ export default function PatientVideoCall() {
           throw new Error(
             "Invalid token. The token provided is not valid for this App ID or channel. " +
               "This could be due to an expired token, incorrect App ID, or server issues. " +
-              "Please try joining the call again."
+              "Please return to your dashboard and try joining the call again to get a new token."
           );
         } else if (joinError.message && joinError.message.includes("join")) {
           throw new Error(
@@ -525,10 +587,13 @@ export default function PatientVideoCall() {
                 <li>The token has expired (tokens are valid for 1 hour)</li>
                 <li>There was a network issue during token generation</li>
                 <li>The App ID or channel name has changed</li>
+                <li>There's a temporary issue with Agora's servers</li>
               </ul>
               <p>
                 <strong>Solution:</strong> Return to your dashboard and try
-                joining the call again. This will generate a new token.
+                joining the call again. This will generate a fresh token. If the
+                problem persists, try refreshing the page or check your internet
+                connection.
               </p>
             </div>
           )}
