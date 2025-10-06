@@ -34,26 +34,24 @@ import {
   Video,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import IncomingCallModal from "@/components/IncomingCallModal";
+
+// Define interfaces for the data structures
+interface DoctorProfile {
+  specialties?: string[];
+  date_of_birth?: string;
+  gender?: string;
+  verification_status?: string;
+}
 
 interface DoctorData {
   id: string;
   name: string;
   email: string;
   phone: string;
-  avatar_url?: string;
-  profile?: {
-    specialties?: string[];
-    qualifications?: string[];
-    experience_years?: number;
-    consultation_fee?: number;
-    rating?: number;
-    total_reviews?: number;
-    hospital?: string;
-    is_available_online?: boolean;
-    availability_hours?: Record<string, unknown>;
-    bio?: string;
-  };
+  profile?: DoctorProfile;
   verification_status?: string;
 }
 
@@ -62,7 +60,6 @@ interface Appointment {
   patient: {
     id: string;
     name: string;
-    phone?: string;
     patient_profile?: {
       date_of_birth?: string;
       gender?: string;
@@ -81,41 +78,52 @@ interface Appointment {
 }
 
 interface DashboardStats {
-  totalPatients: number;
-  totalAppointments: number;
-  completedAppointments: number;
   todayAppointments: number;
-  upcomingAppointments: number;
+  totalPatients: number;
+  pendingAppointments: number;
   rating: number;
   totalReviews: number;
   totalRevenue: number;
-  pendingAppointments?: number;
-  canceledAppointments?: number;
 }
 
 export default function DoctorDashboard() {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState("overview");
+  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [doctorData, setDoctorData] = useState<DoctorData | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([]);
   const [upcomingAppointments, setUpcomingAppointments] = useState<
     Appointment[]
   >([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [recentAppointments, setRecentAppointments] = useState<Appointment[]>(
+    []
+  );
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [notifications, setNotifications] = useState<Record<string, unknown>[]>(
+    []
+  );
   const [onlineStatus, setOnlineStatus] = useState<"online" | "busy" | "away">(
     "online"
   );
-  const [activeTab, setActiveTab] = useState("overview");
-  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+
+  // Use ref to store current doctorData for socket event handlers
+  const doctorDataRef = useRef<DoctorData | null>(doctorData);
+
+  // Update ref whenever doctorData changes
+  useEffect(() => {
+    doctorDataRef.current = doctorData;
+  }, [doctorData]);
 
   const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
-      setError("");
-
       const token = localStorage.getItem("authToken");
-      if (!token) {
-        window.location.href = "/auth/login";
+      const userId = localStorage.getItem("userId");
+
+      if (!token || !userId) {
+        router.push("/auth/login");
         return;
       }
 
@@ -130,62 +138,76 @@ export default function DoctorDashboard() {
       }
 
       const data = await response.json();
-
       setDoctorData(data.doctor);
       setStats(data.stats);
-      setTodayAppointments(data.todayAppointments || []);
       setUpcomingAppointments(data.upcomingAppointments || []);
-    } catch (error: unknown) {
-      console.error("Error fetching dashboard data:", error);
+      setRecentAppointments(data.recentAppointments || []);
+    } catch (err) {
       setError(
-        error instanceof Error ? error.message : "Failed to load dashboard data"
+        err instanceof Error ? err.message : "Failed to load dashboard data"
       );
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  const handleAppointmentUpdate = useCallback(() => {
-    // Update appointment list in real-time
-    fetchDashboardData();
-  }, [fetchDashboardData]);
-
-  const handleNewMessage = useCallback(() => {
-    // This function is kept for the useEffect dependencies but doesn't do anything
-    // since unreadMessages state variable was removed
-  }, []);
-
-  const handleStatusChange = useCallback(
-    (statusUpdate: unknown) => {
-      if (
-        statusUpdate &&
-        typeof statusUpdate === "object" &&
-        "doctorId" in statusUpdate &&
-        (statusUpdate as { doctorId: string }).doctorId === doctorData?.id
-      ) {
-        // Update doctor status
-      }
-    },
-    [doctorData?.id]
-  );
+  }, [router]);
 
   useEffect(() => {
     fetchDashboardData();
 
     // Initialize socket connection
     const token = localStorage.getItem("authToken");
-    if (token) {
-      socketClient.connect(token);
-      socketClient.joinNotifications();
+    const userId = localStorage.getItem("userId");
+
+    if (token && userId) {
+      socketClient.connect(token, userId);
+
+      // Set up a one-time connection handler
+      const connectHandler = () => {
+        console.log("Socket connected, joining notifications");
+        socketClient.joinNotifications();
+      };
+
+      // If already connected, join immediately
+      if (socketClient.isConnected()) {
+        socketClient.joinNotifications();
+      } else {
+        // Otherwise wait for connection
+        socketClient.on("connect", connectHandler);
+      }
 
       // Listen for appointment updates
+      const handleAppointmentUpdate = () => {
+        // Update appointment list in real-time
+        fetchDashboardData();
+      };
+
+      const handleNewMessage = () => {
+        // This function is kept for the useEffect dependencies but doesn't do anything
+        // since unreadMessages state variable was removed
+      };
+
+      const handleStatusChange = (statusUpdate: unknown) => {
+        if (
+          statusUpdate &&
+          typeof statusUpdate === "object" &&
+          "doctorId" in statusUpdate &&
+          doctorDataRef.current &&
+          (statusUpdate as { doctorId: string }).doctorId ===
+            doctorDataRef.current.id
+        ) {
+          // Update doctor status
+        }
+      };
+
       socketClient.on("appointment-update", handleAppointmentUpdate);
       socketClient.on("new-message", handleNewMessage);
       socketClient.on("doctor-status-change", handleStatusChange);
 
       // Send heartbeat periodically
       const heartbeatInterval = setInterval(() => {
-        socketClient.sendHeartbeat();
+        if (socketClient.isConnected()) {
+          socketClient.sendHeartbeat();
+        }
       }, 30000); // Every 30 seconds
 
       return () => {
@@ -193,20 +215,27 @@ export default function DoctorDashboard() {
         socketClient.off("appointment-update", handleAppointmentUpdate);
         socketClient.off("new-message", handleNewMessage);
         socketClient.off("doctor-status-change", handleStatusChange);
-        socketClient.disconnect();
+        socketClient.off("connect", connectHandler);
+        // Don't disconnect the socket here as it might be used elsewhere
       };
     }
-  }, [
-    handleAppointmentUpdate,
-    handleNewMessage,
-    handleStatusChange,
-    fetchDashboardData,
-  ]);
+  }, [fetchDashboardData]); // Removed doctorData from dependencies
 
   const updateDoctorStatus = (status: "online" | "busy" | "away") => {
     setOnlineStatus(status);
     socketClient.updateStatus(status);
   };
+
+  // Filter today's appointments
+  const todayAppointments = recentAppointments.filter((appointment) => {
+    const today = new Date();
+    const appointmentDate = new Date(appointment.scheduled_at);
+    return (
+      appointmentDate.getDate() === today.getDate() &&
+      appointmentDate.getMonth() === today.getMonth() &&
+      appointmentDate.getFullYear() === today.getFullYear()
+    );
+  });
 
   if (loading) {
     return (
@@ -395,43 +424,12 @@ export default function DoctorDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 relative overflow-hidden">
-      {/* Enhanced Animated Background */}
-      <div className="absolute inset-0">
-        <motion.div
-          animate={{
-            background: [
-              "radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 50%)",
-              "radial-gradient(circle at 80% 20%, rgba(168, 85, 247, 0.05) 0%, transparent 50%)",
-              "radial-gradient(circle at 40% 80%, rgba(14, 165, 233, 0.05) 0%, transparent 50%)",
-              "radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 50%)",
-            ],
-          }}
-          transition={{ duration: 15, repeat: Infinity }}
-          className="absolute inset-0"
-        />
-        <motion.div
-          animate={{
-            x: [0, 100, 0],
-            y: [0, 50, 0],
-          }}
-          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-0 left-0 w-96 h-96 bg-blue-300/10 rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={{
-            x: [0, -100, 0],
-            y: [0, -50, 0],
-          }}
-          transition={{ duration: 30, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute bottom-0 right-0 w-96 h-96 bg-purple-300/10 rounded-full blur-3xl"
-        />
-      </div>
-
-      {/* Navigation Header */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <NavigationHeader />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-8 relative z-10">
+      {/* Remove the direct IncomingCallModal render as it's handled by GlobalIncomingCallHandler */}
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Enhanced Sidebar */}
           <div className="lg:w-80">
@@ -919,7 +917,10 @@ export default function DoctorDashboard() {
                   exit={{ opacity: 0, y: -20 }}
                   className="space-y-6"
                 >
-                  <AppointmentManagement doctorId={doctorData?.id || ""} />
+                  <AppointmentManagement
+                    doctorId={doctorData?.id || ""}
+                    doctorName={doctorData?.name || ""}
+                  />
                 </motion.div>
               )}
 

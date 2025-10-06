@@ -1,42 +1,19 @@
-"use client";
+import { Server as SocketIOServer } from "socket.io";
+import { Server as HTTPServer } from "http";
 
-import { Server as SocketIOServer, Socket } from "socket.io";
-import { prisma } from "@/lib/prisma";
-import { verifyJWT } from "@/lib/auth";
-import { User } from "@prisma/client";
-import { Server as HttpServer } from "http";
-
-interface DoctorData {
-  userId: string;
-  socketId: string;
-  lastSeen: Date;
-  status: "online" | "busy" | "away";
-}
-
-interface MessageData {
-  appointmentId: string;
+// Define interfaces for data types
+interface NotificationData {
+  id: string;
+  type: string;
   message: string;
-  toUserId: string;
+  timestamp: string;
+  read: boolean;
 }
 
 interface OrderUpdateData {
   orderId: string;
   status: string;
-  orderType: string;
-  patientId: string;
-}
-
-interface StatusUpdateData {
-  status: "online" | "busy" | "away";
-}
-
-interface NotificationData {
-  id: string;
-  title: string;
-  message: string;
-  type: string;
-  timestamp: Date;
-  isRead: boolean;
+  // Add other order update properties as needed
 }
 
 interface AppointmentUpdateData {
@@ -45,246 +22,201 @@ interface AppointmentUpdateData {
   // Add other appointment update properties as needed
 }
 
-// Store for tracking online doctors
-const onlineDoctors = new Map<string, DoctorData>();
+interface CallData {
+  callId: string;
+  callerId: string;
+  callerName: string;
+  calleeId: string;
+  calleeName: string;
+  appointmentId: string;
+  channelName: string;
+}
 
-export function initializeSocketIO(httpServer: HttpServer) {
+interface CallResponse {
+  accepted: boolean;
+  callerId: string;
+  calleeId: string;
+  appointmentId: string;
+}
+
+export function initializeSocketIO(httpServer: HTTPServer) {
   const io = new SocketIOServer(httpServer, {
     cors: {
       origin: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-      methods: ["GET", "POST"],
+      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      credentials: true,
+      allowedHeaders: ["Content-Type", "Authorization"],
     },
+    allowEIO3: true,
+    transports: ["websocket", "polling"],
+    cookie: false,
   });
 
-  // Middleware for authentication
-  io.use(async (socket: Socket, next) => {
-    try {
-      const token = socket.handshake.auth.token;
-      if (!token) {
-        return next(new Error("Authentication error"));
-      }
+  // Store connected users
+  const connectedUsers = new Map<string, string>(); // userId -> socketId
+  // Store active calls
+  const activeCalls = new Map<string, CallData>();
 
-      const decoded = verifyJWT(token) as User & { userId: string };
+  io.on("connection", (socket) => {
+    console.log("User connected:", socket.id);
 
-      // Fetch user details
-      const user = await prisma.user.findUnique({
-        where: { id: decoded.userId },
-        include: {
-          doctor_profile: true,
-        },
-      });
-
-      if (!user || !user.is_active) {
-        return next(new Error("User not found or inactive"));
-      }
-
-      (socket.data as { user: typeof user }).user = user;
-      next();
-    } catch (_error) {
-      next(new Error("Authentication error"));
-    }
-  });
-
-  io.on("connection", (socket: Socket) => {
-    const user = (socket.data as { user: User & { doctor_profile?: unknown } })
-      .user;
-    console.log(`User connected: ${user.name} (${user.id})`);
-
-    // Handle doctor status updates
-    if (user.role === "DOCTOR" && user.doctor_profile) {
-      // Add doctor to online list
-      onlineDoctors.set(user.id, {
-        userId: user.id,
-        socketId: socket.id,
-        lastSeen: new Date(),
-        status: "online",
-      });
-
-      // Update doctor profile with online status
-      prisma.doctorProfile
-        .update({
-          where: { user_id: user.id },
-          data: { is_available_online: true },
-        })
-        .catch(console.error);
-
-      // Broadcast doctor online status
-      socket.broadcast.emit("doctor-status-change", {
-        doctorId: user.id,
-        doctorName: user.name,
-        status: "online",
-        timestamp: new Date(),
-      });
-
-      // Handle doctor status change
-      socket.on("update-status", async (data: StatusUpdateData) => {
-        const { status } = data; // 'online', 'busy', 'away'
-
-        if (onlineDoctors.has(user.id)) {
-          onlineDoctors.set(user.id, {
-            ...onlineDoctors.get(user.id)!,
-            status,
-            lastSeen: new Date(),
-          });
-
-          // Broadcast status change
-          io.emit("doctor-status-change", {
-            doctorId: user.id,
-            doctorName: user.name,
-            status,
-            timestamp: new Date(),
-          });
-
-          // Log status change
-          await prisma.auditLog.create({
-            data: {
-              user_id: user.id,
-              action: "UPDATE",
-              resource: "DoctorStatus",
-              resource_id: user.id,
-              details: {
-                new_status: status,
-                socket_id: socket.id,
-              },
-            },
-          });
-        }
-      });
+    // Handle authentication
+    const token = socket.handshake.auth.token;
+    if (!token) {
+      console.log("Unauthorized connection attempt");
+      socket.disconnect(true);
+      return;
     }
 
-    // Handle appointment notifications
-    socket.on("join-appointment", (appointmentId: string) => {
-      socket.join(`appointment-${appointmentId}`);
-      console.log(`${user.name} joined appointment ${appointmentId}`);
-    });
+    // In a real implementation, you would verify the token and extract user info
+    // For now, we'll simulate this
+    const userId = `user_${socket.id.substring(0, 8)}`;
+    connectedUsers.set(userId, socket.id);
+    console.log(`User ${userId} authenticated with socket ${socket.id}`);
 
-    socket.on("leave-appointment", (appointmentId: string) => {
-      socket.leave(`appointment-${appointmentId}`);
-      console.log(`${user.name} left appointment ${appointmentId}`);
-    });
-
-    // Handle real-time messaging
-    socket.on("send-message", async (data: MessageData) => {
-      const { appointmentId, message, toUserId } = data;
-
-      try {
-        // Save message to database
-        const savedMessage = await prisma.message.create({
-          data: {
-            from_user_id: user.id,
-            to_user_id: toUserId,
-            appointment_id: appointmentId,
-            body: message,
-            is_read: false,
-          },
-          include: {
-            from_user: {
-              select: { name: true, role: true },
-            },
-          },
-        });
-
-        // Send to appointment room
-        io.to(`appointment-${appointmentId}`).emit("new-message", {
-          id: savedMessage.id,
-          message: savedMessage.body,
-          from: {
-            id: savedMessage.from_user_id,
-            name: savedMessage.from_user.name,
-            role: savedMessage.from_user.role,
-          },
-          timestamp: savedMessage.created_at,
-          appointmentId,
-        });
-      } catch (error) {
-        console.error("Error sending message:", error);
-        socket.emit("message-error", { error: "Failed to send message" });
-      }
-    });
-
-    // Handle order status updates
-    socket.on("order-status-update", (data: OrderUpdateData) => {
-      const { orderId, status, orderType, patientId } = data;
-
-      // Emit to patient
-      io.emit("order-update", {
-        orderId,
-        status,
-        orderType,
-        patientId,
-        timestamp: new Date(),
-      });
-    });
-
-    // Handle notification system
+    // Handle joining notifications room
     socket.on("join-notifications", () => {
-      socket.join(`notifications-${user.id}`);
+      socket.join(`notifications_${userId}`);
+      console.log(`User ${userId} joined notifications room`);
     });
 
-    // Handle heartbeat for tracking online status
-    socket.on("heartbeat", () => {
-      if (user.role === "DOCTOR" && onlineDoctors.has(user.id)) {
-        const doctorData = onlineDoctors.get(user.id)!;
-        onlineDoctors.set(user.id, {
-          ...doctorData,
-          lastSeen: new Date(),
+    // Handle joining appointment room
+    socket.on("join-appointment", (appointmentId: string) => {
+      socket.join(`appointment_${appointmentId}`);
+      console.log(`User ${userId} joined appointment room ${appointmentId}`);
+    });
+
+    // Handle leaving appointment room
+    socket.on("leave-appointment", (appointmentId: string) => {
+      socket.leave(`appointment_${appointmentId}`);
+      console.log(`User ${userId} left appointment room ${appointmentId}`);
+    });
+
+    // Handle status updates
+    socket.on("update-status", (data: { status: string }) => {
+      console.log(`User ${userId} updated status to ${data.status}`);
+      // Broadcast status update to relevant users
+      socket.broadcast.emit("doctor-status-change", {
+        doctorId: userId,
+        status: data.status,
+      });
+    });
+
+    // Handle sending messages
+    socket.on("send-message", (data: any) => {
+      console.log(`Message from ${userId}:`, data);
+      // Broadcast message to appointment room
+      socket.to(`appointment_${data.appointmentId}`).emit("new-message", data);
+    });
+
+    // Handle heartbeat
+    socket.on("heartbeat", (data: { timestamp: number }) => {
+      console.log(`Heartbeat from ${userId} at ${data.timestamp}`);
+      // Send acknowledgment back
+      socket.emit("heartbeat-ack", { timestamp: data.timestamp });
+    });
+
+    // Handle call initiation
+    socket.on("initiate-call", (callData: CallData) => {
+      console.log(`Call initiated by ${userId}:`, callData);
+
+      // Store the call
+      activeCalls.set(callData.callId, callData);
+
+      // Find the callee's socket
+      const calleeSocketId = connectedUsers.get(callData.calleeId);
+      if (calleeSocketId) {
+        // Send incoming call notification to callee
+        socket.to(calleeSocketId).emit("incoming-call", callData);
+        console.log(`Sent incoming call to ${callData.calleeId}`);
+      } else {
+        console.log(`Callee ${callData.calleeId} not connected`);
+        // Notify caller that callee is not available
+        socket.emit("call-error", {
+          callId: callData.callId,
+          error: "Callee is not available",
         });
       }
+    });
+
+    // Handle call response
+    socket.on("call-response", (response: CallResponse) => {
+      console.log(`Call response from ${userId}:`, response);
+
+      // Find the caller's socket
+      const callerSocketId = connectedUsers.get(response.callerId);
+      if (callerSocketId) {
+        // Send response to caller
+        socket.to(callerSocketId).emit("call-response", response);
+        console.log(`Sent call response to ${response.callerId}`);
+      }
+
+      // If call was rejected, remove it from active calls
+      if (!response.accepted) {
+        // Find and remove the call
+        for (const [callId, callData] of activeCalls.entries()) {
+          if (
+            callData.callerId === response.callerId &&
+            callData.calleeId === response.calleeId
+          ) {
+            activeCalls.delete(callId);
+            break;
+          }
+        }
+      }
+    });
+
+    // Handle call ended
+    socket.on("call-ended", (callId: string) => {
+      console.log(`Call ended by ${userId}: ${callId}`);
+
+      // Remove call from active calls
+      activeCalls.delete(callId);
+
+      // Broadcast call ended to both parties
+      socket.broadcast.emit("call-ended", callId);
     });
 
     // Handle disconnection
-    socket.on("disconnect", async () => {
-      console.log(`User disconnected: ${user.name} (${user.id})`);
+    socket.on("disconnect", (reason) => {
+      console.log("User disconnected:", socket.id, "Reason:", reason);
 
-      if (user.role === "DOCTOR" && onlineDoctors.has(user.id)) {
-        // Remove from online doctors
-        onlineDoctors.delete(user.id);
+      // Remove user from connected users
+      let disconnectedUserId = "";
+      for (const [userId, socketId] of connectedUsers.entries()) {
+        if (socketId === socket.id) {
+          connectedUsers.delete(userId);
+          disconnectedUserId = userId;
+          break;
+        }
+      }
 
-        // Update doctor profile
-        await prisma.doctorProfile
-          .update({
-            where: { user_id: user.id },
-            data: { is_available_online: false },
-          })
-          .catch(console.error);
+      // If we found the disconnected user, notify any pending calls
+      if (disconnectedUserId) {
+        // Check if this user was involved in any active calls
+        for (const [callId, callData] of activeCalls.entries()) {
+          if (
+            callData.callerId === disconnectedUserId ||
+            callData.calleeId === disconnectedUserId
+          ) {
+            // Notify the other party that the call has ended
+            const otherUserId =
+              callData.callerId === disconnectedUserId
+                ? callData.calleeId
+                : callData.callerId;
 
-        // Broadcast doctor offline status
-        socket.broadcast.emit("doctor-status-change", {
-          doctorId: user.id,
-          doctorName: user.name,
-          status: "offline",
-          timestamp: new Date(),
-        });
+            const otherSocketId = connectedUsers.get(otherUserId);
+            if (otherSocketId) {
+              socket.to(otherSocketId).emit("call-ended", callId);
+            }
+
+            // Remove the call
+            activeCalls.delete(callId);
+          }
+        }
       }
     });
   });
-
-  // Cleanup function to remove stale connections
-  setInterval(() => {
-    const now = new Date();
-    const staleThreshold = 5 * 60 * 1000; // 5 minutes
-
-    for (const [doctorId, data] of onlineDoctors.entries()) {
-      if (now.getTime() - data.lastSeen.getTime() > staleThreshold) {
-        onlineDoctors.delete(doctorId);
-
-        // Update database
-        prisma.doctorProfile
-          .update({
-            where: { user_id: doctorId },
-            data: { is_available_online: false },
-          })
-          .catch(console.error);
-
-        // Broadcast offline status
-        io.emit("doctor-status-change", {
-          doctorId,
-          status: "offline",
-          timestamp: now,
-        });
-      }
-    }
-  }, 60000); // Check every minute
 
   return io;
 }

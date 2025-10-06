@@ -4,6 +4,7 @@ import "./globals.css";
 import { CartProvider } from "@/context/CartContext";
 import { ToastProvider } from "@/context/ToastContext";
 import CartIcon from "@/components/CartIcon";
+import GlobalIncomingCallHandler from "@/components/GlobalIncomingCallHandler";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -58,6 +59,7 @@ export default function RootLayout({
         <CartProvider>
           <ToastProvider>
             <CartIcon />
+            <GlobalIncomingCallHandler />
             {children}
           </ToastProvider>
         </CartProvider>

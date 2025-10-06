@@ -16,6 +16,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { callingService, ActiveCall } from "@/lib/calling-service";
+import OutgoingCallIndicator from "@/components/OutgoingCallIndicator";
 
 interface Appointment {
   id: string;
@@ -42,6 +44,7 @@ interface Appointment {
 
 interface AppointmentManagementProps {
   doctorId: string;
+  doctorName: string;
 }
 
 interface FetchError extends Error {
@@ -56,11 +59,13 @@ interface AgoraTokenResponse {
 
 export default function AppointmentManagement({
   doctorId,
+  doctorName,
 }: AppointmentManagementProps) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("PENDING"); // PENDING, CONFIRMED, ALL
+  const [outgoingCall, setOutgoingCall] = useState<ActiveCall | null>(null);
 
   useEffect(() => {
     fetchAppointments();
@@ -172,6 +177,41 @@ export default function AppointmentManagement({
     }
   };
 
+  const initiateVideoCall = async (appointment: Appointment) => {
+    try {
+      // Generate a unique channel name based on appointment ID
+      const channelName = `appointment_${appointment.id}`;
+
+      // Initiate the call through the calling service
+      const call = await callingService.initiateCall(
+        {
+          calleeId: appointment.patient.id,
+          calleeName: appointment.patient.name,
+          appointmentId: appointment.id,
+          channelName: channelName,
+        },
+        doctorId,
+        doctorName
+      );
+
+      console.log("Call initiated:", call);
+
+      // Show outgoing call indicator
+      setOutgoingCall(call);
+    } catch (err) {
+      const fetchError = err as FetchError;
+      console.error("Error initiating video call:", fetchError);
+      setError(fetchError.message || "Failed to initiate video call");
+    }
+  };
+
+  const handleCancelOutgoingCall = () => {
+    if (outgoingCall) {
+      callingService.endCall(outgoingCall.callId);
+    }
+    setOutgoingCall(null);
+  };
+
   const joinVideoCall = async (appointment: Appointment) => {
     try {
       // Generate a unique channel name based on appointment ID
@@ -239,6 +279,14 @@ export default function AppointmentManagement({
 
   return (
     <div className="space-y-6">
+      {/* Outgoing call indicator */}
+      {outgoingCall && (
+        <OutgoingCallIndicator
+          call={outgoingCall}
+          onCancel={handleCancelOutgoingCall}
+        />
+      )}
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-3xl font-bold text-gray-900">Appointments</h2>
@@ -418,11 +466,11 @@ export default function AppointmentManagement({
 
                         {appointment.status === "CONFIRMED" && (
                           <Button
-                            onClick={() => joinVideoCall(appointment)}
+                            onClick={() => initiateVideoCall(appointment)}
                             className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-full"
                           >
-                            <Video className="h-4 w-4 mr-2" />
-                            Start Video Call
+                            <Phone className="h-4 w-4 mr-2 rotate-[135deg]" />
+                            Call Patient
                           </Button>
                         )}
 

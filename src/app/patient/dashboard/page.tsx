@@ -30,6 +30,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import IncomingCallModal from "@/components/IncomingCallModal";
 
 interface PatientData {
   id: string;
@@ -175,9 +176,11 @@ export default function PatientDashboard() {
 
     // Initialize socket connection
     const token = localStorage.getItem("authToken");
-    if (token) {
+    const userId = localStorage.getItem("userId");
+
+    if (token && userId) {
       try {
-        socketClient.connect(token);
+        socketClient.connect(token, userId);
         socketClient.joinNotifications();
 
         // Listen for appointment updates
@@ -199,7 +202,7 @@ export default function PatientDashboard() {
           socketClient.off("new-message", handleNewMessage);
           socketClient.off("order-update", handleOrderUpdate);
           socketClient.off("notification", handleNotification);
-          socketClient.disconnect();
+          // Don't disconnect the socket here as it might be used elsewhere
         };
       } catch (error) {
         console.error("Error initializing socket connection:", error);
@@ -1288,7 +1291,7 @@ export default function PatientDashboard() {
                               whileTap={{ scale: 0.95 }}
                             >
                               <Link href="/medicines">
-                                <Button className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 rounded-full">
+                                <Button className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-500 rounded-full">
                                   Order Medicines
                                 </Button>
                               </Link>
