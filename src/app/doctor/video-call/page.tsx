@@ -339,7 +339,12 @@ function DoctorVideoCallContent() {
           token || null,
           uidNumber
         );
-        console.log("✅ DOCTOR: Successfully joined channel");
+        console.log("✅ DOCTOR: Successfully joined channel", {
+          channel: channelName,
+          uid: uidNumber,
+          message: "Now waiting for patient tracks or will publish first...",
+          listenersActive: "user-published event listener is active",
+        });
       }
 
       // Publish local tracks AFTER joining
@@ -350,13 +355,23 @@ function DoctorVideoCallContent() {
         localAudioTrackRef.current &&
         localVideoTrackRef.current
       ) {
-        console.log("📤 DOCTOR: Publishing local tracks...");
+        console.log("📤 DOCTOR: Publishing local tracks...", {
+          channel: channelName,
+          uid: uidNumber,
+          hasAudio: !!localAudioTrackRef.current,
+          hasVideo: !!localVideoTrackRef.current,
+          message: "This should trigger user-published event for patient",
+        });
         await clientRef.current.publish(
           [localAudioTrackRef.current, localVideoTrackRef.current].filter(
             Boolean
           ) as unknown[]
         );
-        console.log("✅ DOCTOR: Local tracks published successfully");
+        console.log("✅ DOCTOR: Local tracks published successfully", {
+          channel: channelName,
+          uid: uidNumber,
+          message: "Patient should now receive user-published event!",
+        });
       }
 
       if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
