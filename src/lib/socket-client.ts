@@ -1,3 +1,5 @@
+"use client";
+
 // Define specific event data types
 interface MessageData {
   id: string;
@@ -11,147 +13,65 @@ interface MessageData {
 interface OrderUpdateData {
   orderId: string;
   status: string;
-  // Add other order update properties as needed
 }
 
 interface DoctorStatusData {
   doctorId: string;
   status: "online" | "busy" | "away";
-  // Add other doctor status properties as needed
 }
 
 interface HeartbeatData {
   timestamp: number;
 }
 
-// Global mock event bus for routing events between different user instances in mock mode
-const mockEventBus: {
-  listeners: Map<
-    string,
-    Array<{ userId: string | null; callback: (data: any) => void }>
-  >;
-  emit: (event: string, data: any, targetUserId?: string) => void;
-  subscribe: (
-    event: string,
-    userId: string | null,
-    callback: (data: any) => void
-  ) => void;
-  unsubscribe: (
-    event: string,
-    userId: string | null,
-    callback: (data: any) => void
-  ) => void;
-} = {
-  listeners: new Map(),
-
-  emit(event: string, data: any, targetUserId?: string) {
-    console.log(
-      `[MOCK EVENT BUS] Emitting event: ${event}`,
-      data,
-      "Target:",
-      targetUserId
-    );
-    const listeners = this.listeners.get(event) || [];
-    console.log(
-      `[MOCK EVENT BUS] Found ${listeners.length} listeners for event ${event}`
-    );
-    let calledCount = 0;
-    listeners.forEach(({ userId, callback }, index) => {
-      // If targetUserId is specified, only send to that user
-      // If targetUserId is not specified, send to all users
-      if (
-        targetUserId === undefined ||
-        userId === targetUserId ||
-        userId === null
-      ) {
-        console.log(
-          `[MOCK EVENT BUS] Calling callback ${index} for user: ${userId}`
-        );
-        calledCount++;
-        try {
-          callback(data);
-        } catch (error) {
-          console.error(`Error in mock event listener for ${event}:`, error);
-        }
-      } else {
-        console.log(
-          `[MOCK EVENT BUS] Skipping callback ${index} for user: ${userId} (target: ${targetUserId})`
-        );
-      }
-    });
-    console.log(
-      `[MOCK EVENT BUS] Called ${calledCount} callbacks for event ${event}`
-    );
-  },
-
-  subscribe(
-    event: string,
-    userId: string | null,
-    callback: (data: any) => void
-  ) {
-    console.log(
-      `[MOCK EVENT BUS] Subscribing to event: ${event} for user: ${userId}`
-    );
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, []);
-    }
-    this.listeners.get(event)?.push({ userId, callback });
-    console.log(
-      `[MOCK EVENT BUS] Now have ${
-        this.listeners.get(event)?.length
-      } listeners for event ${event}`
-    );
-  },
-
-  unsubscribe(
-    event: string,
-    userId: string | null,
-    callback: (data: any) => void
-  ) {
-    console.log(
-      `[MOCK EVENT BUS] Unsubscribing from event: ${event} for user: ${userId}`
-    );
-    const listeners = this.listeners.get(event) || [];
-    const index = listeners.findIndex(
-      (listener) => listener.userId === userId && listener.callback === callback
-    );
-    if (index !== -1) {
-      listeners.splice(index, 1);
-    }
-    console.log(
-      `[MOCK EVENT BUS] Now have ${listeners.length} listeners for event ${event}`
-    );
-  },
-};
-
-interface MockSocket {
-  connected: boolean;
-  on(event: string, callback: (...args: unknown[]) => void): void;
-  off(event: string, callback?: (...args: unknown[]) => void): void;
-  emit(event: string, data: unknown): void;
-  close(): void;
-  disconnect(): void;
+interface CallInitiationData {
+  callerId: string;
+  callerName: string;
+  calleeId: string;
+  calleeName: string;
+  appointmentId: string;
+  channelName: string;
+  callId: string;
 }
 
-// Define the callback type with specific event data
+interface CallResponseData {
+  callId: string;
+  accepted: boolean;
+  callerId: string;
+  calleeId: string;
+  appointmentId: string;
+}
+
+interface CallEndedData {
+  callId: string;
+  endedBy: string;
+}
+
+// Define the callback type
 type SocketCallback<T = unknown> = (data: T) => void;
+
+// Real-time event interface for API communication
+interface RealTimeEvent {
+  id: string;
+  userId: string;
+  eventType: string;
+  data: any;
+  timestamp: number;
+  processed?: boolean;
+}
 
 class SocketClient {
   private static instance: SocketClient;
-  private socket: MockSocket | null = null;
   private authToken: string | null = null;
+  private userId: string | null = null;
+  private userRole: string | null = null;
+  private isAuthenticated: boolean = false;
+  private pollInterval: NodeJS.Timeout | null = null;
+  private lastEventTime: number = 0;
+  private eventListeners: Map<string, SocketCallback[]> = new Map();
+  private isPolling: boolean = false;
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 3;
-  private baseReconnectDelay: number = 2000;
-  private maxReconnectDelay: number = 10000;
-  private isConnecting: boolean = false;
-  private connectionTimeout: NodeJS.Timeout | null = null;
-  private eventListeners: Map<string, SocketCallback[]> = new Map();
-  private mockConnectionInterval: NodeJS.Timeout | null = null;
-  private mockMode: boolean = false;
-  private userId: string | null = null; // Add user ID tracking
-  private subscriptions: Array<{ event: string; callback: SocketCallback }> =
-    []; // Track subscriptions
 
   private constructor() {}
 
@@ -162,293 +82,305 @@ class SocketClient {
     return SocketClient.instance;
   }
 
-  public async connect(token: string, userId?: string): Promise<void> {
-    // If already connected or connecting, don't reconnect
-    if (this.socket && this.socket.connected) {
-      console.log("Socket already connected (mock mode)");
+  // Add method to set user context
+  public setUserContext(userId: string, userRole: string): void {
+    this.userId = userId;
+    this.userRole = userRole;
+    console.log(`[REAL-TIME] Setting user context: ${userId} (${userRole})`);
+  }
+
+  public async connect(
+    token: string,
+    userId?: string,
+    userRole?: string
+  ): Promise<void> {
+    // If already connected, don't reconnect
+    if (this.isPolling && this.isAuthenticated) {
+      console.log("[REAL-TIME] Already connected to polling service");
       // But we still need to update the userId if provided
-      if (userId) {
-        const oldUserId = this.userId;
-        this.userId = userId;
-        // Update subscriptions in the mock event bus
-        if (oldUserId !== userId) {
-          this.updateSubscriptions(oldUserId, userId);
-        }
+      if (userId && userRole) {
+        this.setUserContext(userId, userRole);
       }
       return;
-    }
-
-    if (this.isConnecting) {
-      console.log("Socket connection already in progress (mock mode)");
-      return;
-    }
-
-    // Clear any existing timeout
-    if (this.connectionTimeout) {
-      clearTimeout(this.connectionTimeout);
-      this.connectionTimeout = null;
     }
 
     try {
-      this.isConnecting = true;
       this.authToken = token;
-      this.userId = userId || null; // Store user ID if provided
 
-      // Log the connection attempt
-      console.log(
-        "Attempting to connect to Socket.IO server at:",
-        process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3000"
+      // Try to get user context from parameters or localStorage
+      if (userId && userRole) {
+        this.setUserContext(userId, userRole);
+      } else {
+        // Try to get from localStorage if not provided
+        const storedUserId = localStorage.getItem("userId");
+        const storedUserRole = localStorage.getItem("userRole");
+
+        if (storedUserId && storedUserRole) {
+          console.log(
+            "[REAL-TIME] Using stored user context from localStorage"
+          );
+          this.setUserContext(storedUserId, storedUserRole);
+        } else {
+          console.error(
+            "[REAL-TIME] No user context available in parameters or localStorage"
+          );
+          throw new Error(
+            "Cannot connect - missing user context (userId and userRole required)"
+          );
+        }
+      }
+
+      console.log("[REAL-TIME] Starting real-time polling connection");
+
+      // Authenticate user
+      await this.authenticateUser();
+
+      // Start polling for events
+      this.startPolling();
+
+      console.log("[REAL-TIME] ✅ Real-time polling connection established");
+    } catch (error) {
+      console.error("[REAL-TIME] Error connecting:", error);
+      this.handleReconnection();
+    }
+  }
+
+  private async authenticateUser(): Promise<void> {
+    if (!this.userId || !this.userRole || !this.authToken) {
+      const missingFields = [];
+      if (!this.userId) missingFields.push("userId");
+      if (!this.userRole) missingFields.push("userRole");
+      if (!this.authToken) missingFields.push("authToken");
+
+      console.error(
+        "[REAL-TIME] Authentication failed - missing:",
+        missingFields
       );
+      throw new Error(
+        `Cannot authenticate - missing user context: ${missingFields.join(
+          ", "
+        )}`
+      );
+    }
 
-      // In a real implementation, we would connect to the WebSocket server here
-      // For now, we'll use mock mode but simulate real behavior
-      this.setupMockSocket();
-      this.isConnecting = false;
+    console.log(
+      `[REAL-TIME] 🔐 Authenticating user ${this.userId} (${this.userRole})`
+    );
 
-      // Emit a custom event to notify the application
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("socketConnected"));
+    try {
+      const response = await fetch("/api/events/authenticate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.authToken}`,
+        },
+        body: JSON.stringify({
+          userId: this.userId,
+          userRole: this.userRole,
+        }),
+      });
+
+      if (response.ok) {
+        this.isAuthenticated = true;
+        console.log("[REAL-TIME] ✅ User authenticated");
+        this.reconnectAttempts = 0;
+      } else {
+        throw new Error("Authentication failed");
       }
     } catch (error) {
-      console.error("Error initializing socket connection:", error);
-      this.isConnecting = false;
-      this.setupMockSocket();
+      console.error("[REAL-TIME] Authentication error:", error);
+      throw error;
     }
   }
 
-  // Update subscriptions when userId changes
-  private updateSubscriptions(
-    oldUserId: string | null,
-    newUserId: string | null
-  ) {
-    if (oldUserId === newUserId) return;
+  private startPolling(): void {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+    }
 
-    console.log(
-      `Updating subscriptions from user ${oldUserId} to ${newUserId}`
-    );
+    this.isPolling = true;
+    this.lastEventTime = Date.now();
 
-    // Unsubscribe from all events with old userId
-    this.subscriptions.forEach(({ event, callback }) => {
-      if (oldUserId !== null) {
-        mockEventBus.unsubscribe(event, oldUserId, callback);
+    // Poll every 1.5 seconds for real-time feel
+    this.pollInterval = setInterval(() => {
+      this.pollForEvents();
+    }, 1500);
+
+    console.log(`[REAL-TIME] Started polling for user ${this.userId}`);
+  }
+
+  private async pollForEvents(): Promise<void> {
+    if (!this.isAuthenticated || !this.userId) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/events/poll?userId=${this.userId}&since=${this.lastEventTime}`,
+        {
+          headers: {
+            Authorization: `Bearer ${this.authToken}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const events: RealTimeEvent[] = await response.json();
+
+        if (events.length > 0) {
+          console.log(`[REAL-TIME] Received ${events.length} new events`);
+
+          events.forEach((event) => {
+            this.handleEvent(event);
+            // Update last event time to the latest event
+            if (event.timestamp > this.lastEventTime) {
+              this.lastEventTime = event.timestamp;
+            }
+          });
+        }
+      } else if (response.status === 401) {
+        // Re-authenticate if token expired
+        console.log("[REAL-TIME] Token expired, re-authenticating...");
+        await this.authenticateUser();
+      }
+    } catch (error) {
+      // Only log errors occasionally to avoid spam
+      if (this.reconnectAttempts % 10 === 0) {
+        console.log(`[REAL-TIME] Polling error (will retry):`, error);
+      }
+      this.reconnectAttempts++;
+    }
+  }
+
+  private handleEvent(event: RealTimeEvent): void {
+    console.log(`[REAL-TIME] Handling event: ${event.eventType}`, event.data);
+
+    const listeners = this.eventListeners.get(event.eventType) || [];
+    listeners.forEach((callback) => {
+      try {
+        callback(event.data);
+      } catch (error) {
+        console.error(
+          `[REAL-TIME] Error in listener for ${event.eventType}:`,
+          error
+        );
       }
     });
-
-    // Subscribe to all events with new userId
-    this.subscriptions.forEach(({ event, callback }) => {
-      mockEventBus.subscribe(event, newUserId, callback);
-    });
   }
 
-  private setupMockSocket(): void {
-    // Clear any existing interval
-    if (this.mockConnectionInterval) {
-      clearInterval(this.mockConnectionInterval);
-      this.mockConnectionInterval = null;
+  private handleReconnection(): void {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.log("[REAL-TIME] ❌ Max reconnection attempts reached");
+      return;
     }
 
-    this.mockMode = true;
-
-    // Create a mock socket object
-    this.socket = {
-      connected: true,
-      on: (event: string, callback: SocketCallback) => {
-        if (!this.eventListeners.has(event)) {
-          this.eventListeners.set(event, []);
-        }
-        this.eventListeners.get(event)?.push(callback);
-
-        // Track subscription for later updates
-        this.subscriptions.push({ event, callback });
-
-        // Subscribe to global event bus
-        // If userId is not available yet, subscribe with null (will receive all events)
-        mockEventBus.subscribe(event, this.userId, callback);
-      },
-      off: (event: string, callback?: SocketCallback) => {
-        if (callback) {
-          const listeners = this.eventListeners.get(event);
-          if (listeners) {
-            const index = listeners.indexOf(callback);
-            if (index > -1) {
-              listeners.splice(index, 1);
-            }
-          }
-
-          // Remove from tracked subscriptions
-          this.subscriptions = this.subscriptions.filter(
-            (sub) => sub.event !== event || sub.callback !== callback
-          );
-
-          // Unsubscribe from global event bus
-          if (this.userId !== null) {
-            mockEventBus.unsubscribe(event, this.userId, callback);
-          }
-        } else {
-          this.eventListeners.delete(event);
-
-          // Remove all subscriptions for this event
-          const subscriptionsToRemove = this.subscriptions.filter(
-            (sub) => sub.event === event
-          );
-          this.subscriptions = this.subscriptions.filter(
-            (sub) => sub.event !== event
-          );
-
-          // Unsubscribe all listeners for this event from global event bus
-          if (this.userId !== null) {
-            subscriptionsToRemove.forEach(({ callback }) => {
-              mockEventBus.unsubscribe(event, this.userId, callback);
-            });
-          }
-        }
-      },
-      emit: (event: string, data: unknown) => {
-        console.log(`[MOCK SOCKET] Emitting event: ${event}`, data);
-        // In mock mode, we route events through the global event bus
-        if (this.mockMode) {
-          // For call events, we need to route them to the correct user
-          if (
-            event === "initiate-call" &&
-            typeof data === "object" &&
-            data !== null &&
-            "calleeId" in data
-          ) {
-            console.log(
-              `[MOCK SOCKET] Routing initiate-call to callee: ${
-                (data as any).calleeId
-              }`
-            );
-            // Route call initiation to the callee
-            mockEventBus.emit(event, data, (data as any).calleeId);
-          } else if (
-            event === "call-response" &&
-            typeof data === "object" &&
-            data !== null &&
-            "callerId" in data
-          ) {
-            console.log(
-              `[MOCK SOCKET] Routing call-response to caller: ${
-                (data as any).callerId
-              }`
-            );
-            // Route call response to the caller
-            mockEventBus.emit(event, data, (data as any).callerId);
-          } else if (
-            event === "incoming-call" &&
-            typeof data === "object" &&
-            data !== null &&
-            "calleeId" in data
-          ) {
-            console.log(
-              `[MOCK SOCKET] Routing incoming-call to callee: ${
-                (data as any).calleeId
-              }`
-            );
-            // Route incoming call to the callee
-            mockEventBus.emit(event, data, (data as any).calleeId);
-          } else if (event === "call-ended") {
-            console.log(`[MOCK SOCKET] Broadcasting call-ended event`);
-            // For call-ended events, we broadcast to all users
-            // Each user will check if they have that callId and handle accordingly
-            mockEventBus.emit(event, data);
-          } else {
-            console.log(`[MOCK SOCKET] Broadcasting event: ${event}`);
-            // For other events, broadcast to all users
-            mockEventBus.emit(event, data);
-          }
-        }
-      },
-      close: () => {
-        this.disconnect();
-      },
-      disconnect: () => {
-        this.disconnect();
-      },
-    };
+    const delay = Math.min(2000 * Math.pow(2, this.reconnectAttempts), 10000);
+    this.reconnectAttempts++;
 
     console.log(
-      "Switched to mock socket mode - events will be logged instead of sent over WebSocket"
+      `[REAL-TIME] 🔄 Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`
     );
 
-    // Simulate periodic events
-    this.setupMockEvents();
-  }
-
-  private setupMockEvents(): void {
-    // Clear any existing interval
-    if (this.mockConnectionInterval) {
-      clearInterval(this.mockConnectionInterval);
-    }
-
-    // Simulate periodic heartbeat events
-    this.mockConnectionInterval = setInterval(() => {
-      // Emit mock heartbeat events
-      this.emitMockEvent<HeartbeatData>("heartbeat", { timestamp: Date.now() });
-    }, 30000);
-  }
-
-  private emitMockEvent<T>(event: string, data: T): void {
-    const listeners = this.eventListeners.get(event);
-    if (listeners) {
-      listeners.forEach((callback) => {
-        try {
-          callback(data);
-        } catch (error) {
-          console.error(`Error in mock event listener for ${event}:`, error);
-        }
-      });
-    }
-  }
-
-  // Method to simulate receiving a message event
-  public simulateMessage(data: MessageData): void {
-    this.emitMockEvent<MessageData>("new-message", data);
-  }
-
-  // Method to simulate receiving an order update event
-  public simulateOrderUpdate(data: OrderUpdateData): void {
-    this.emitMockEvent<OrderUpdateData>("order-update", data);
-  }
-
-  // Method to simulate receiving a doctor status change event
-  public simulateDoctorStatusChange(data: DoctorStatusData): void {
-    this.emitMockEvent<DoctorStatusData>("doctor-status-change", data);
+    setTimeout(() => {
+      if (this.authToken) {
+        this.connect(
+          this.authToken,
+          this.userId || undefined,
+          this.userRole || undefined
+        );
+      }
+    }, delay);
   }
 
   public on<T = unknown>(event: string, callback: SocketCallback<T>): void {
-    if (!this.socket) {
-      this.setupMockSocket();
+    if (!this.eventListeners.has(event)) {
+      this.eventListeners.set(event, []);
     }
-    this.socket?.on(event, callback as unknown as (...args: unknown[]) => void);
+
+    this.eventListeners.get(event)?.push(callback as SocketCallback);
+    console.log(`[REAL-TIME] 📡 Listening for event: ${event}`);
+
+    // 🚨 CRITICAL FIX: Special handling for calling service integration
+    // The calling service registers listeners but the real-time events need special bridging
+    if (
+      event === "incoming-call" ||
+      event === "call-response" ||
+      event === "call-ended"
+    ) {
+      console.log(
+        `🔗 [REAL-TIME] Registered calling service bridge for: ${event}`
+      );
+    }
   }
 
   public off<T = unknown>(event: string, callback?: SocketCallback<T>): void {
-    this.socket?.off(
-      event,
-      callback as unknown as ((...args: unknown[]) => void) | undefined
-    );
+    const listeners = this.eventListeners.get(event);
+    if (listeners && callback) {
+      const index = listeners.indexOf(callback as SocketCallback);
+      if (index > -1) {
+        listeners.splice(index, 1);
+      }
+    } else if (listeners) {
+      // Remove all listeners for this event
+      this.eventListeners.set(event, []);
+    }
+    console.log(`[REAL-TIME] 🔇 Removing listener for event: ${event}`);
   }
 
   public emit<T = unknown>(event: string, data: T): boolean {
-    if (!this.socket) {
-      this.setupMockSocket();
+    if (!this.isAuthenticated || !this.userId) {
+      console.log("[REAL-TIME] ⚠️ Cannot emit - not authenticated:", {
+        event,
+        isAuthenticated: this.isAuthenticated,
+        hasUserId: !!this.userId,
+        userId: this.userId,
+      });
+      return false;
     }
 
-    console.log(`[SOCKET] Emitting event: ${event}`, data);
+    console.log(`[REAL-TIME] 📤 Emitting event: ${event}`, {
+      event,
+      data,
+      userId: this.userId,
+      isAuthenticated: this.isAuthenticated,
+    });
 
-    // Emit the event through the socket
-    this.socket?.emit(event, data);
+    // Send event to server via API
+    fetch("/api/events/emit", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.authToken}`,
+      },
+      body: JSON.stringify({
+        userId: this.userId,
+        eventType: event,
+        data: data,
+      }),
+    })
+      .then((response) => {
+        if (response.ok) {
+          console.log(`[REAL-TIME] ✅ Event ${event} emitted successfully`);
+        } else {
+          console.error(
+            `[REAL-TIME] ❌ Event ${event} emit failed:`,
+            response.status
+          );
+        }
+      })
+      .catch((error) => {
+        console.error(`[REAL-TIME] ❌ Error emitting ${event}:`, error);
+      });
 
     return true;
   }
 
   public joinAppointment(appointmentId: string): boolean {
-    return this.emit("join-appointment", appointmentId);
+    return this.emit("join-appointment", { appointmentId });
   }
 
   public leaveAppointment(appointmentId: string): boolean {
-    return this.emit("leave-appointment", appointmentId);
+    return this.emit("leave-appointment", { appointmentId });
   }
 
   public joinNotifications(): boolean {
@@ -471,37 +403,77 @@ class SocketClient {
     return this.emit<HeartbeatData>("heartbeat", { timestamp: Date.now() });
   }
 
+  public initiateCall(data: {
+    calleeId: string;
+    calleeName: string;
+    callerId: string;
+    callerName: string;
+    appointmentId: string;
+    channelName: string;
+    callId: string;
+  }): boolean {
+    console.log("[REAL-TIME] 📞 Initiating call:", data);
+    return this.emit<CallInitiationData>("initiate-call", data);
+  }
+
+  public respondToCall(data: {
+    callId: string;
+    accepted: boolean;
+    callerId: string;
+    calleeId: string;
+    appointmentId: string;
+  }): boolean {
+    console.log("[REAL-TIME] 📞 Responding to call:", data);
+    return this.emit<CallResponseData>("call-response", data);
+  }
+
+  public endCall(data: { callId: string; endedBy: string }): boolean {
+    console.log("[REAL-TIME] 📞 Ending call:", data);
+    return this.emit<CallEndedData>("call-ended", data);
+  }
+
   public disconnect(): void {
-    this.isConnecting = false;
-    if (this.connectionTimeout) {
-      clearTimeout(this.connectionTimeout);
-      this.connectionTimeout = null;
+    this.isPolling = false;
+    this.isAuthenticated = false;
+
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
     }
-    if (this.mockConnectionInterval) {
-      clearInterval(this.mockConnectionInterval);
-      this.mockConnectionInterval = null;
-    }
-    this.socket = null;
+
     this.reconnectAttempts = 0;
-    this.mockMode = false;
-    this.subscriptions = []; // Clear subscriptions
+    console.log("[REAL-TIME] 🚫 Disconnected from polling service");
   }
 
   public isConnected(): boolean {
-    return this.socket?.connected || false;
+    return this.isPolling && this.isAuthenticated;
   }
 
   public isMockMode(): boolean {
-    return this.mockMode;
+    return false; // We're using real polling now
+  }
+
+  public getUserId(): string | null {
+    return this.userId;
+  }
+
+  public getUserRole(): string | null {
+    return this.userRole;
+  }
+
+  public isUserAuthenticated(): boolean {
+    return this.isAuthenticated;
   }
 
   public reset(): void {
     this.disconnect();
-    this.isConnecting = false;
-    this.reconnectAttempts = 0;
     this.authToken = null;
-    this.mockMode = false;
-    this.subscriptions = []; // Clear subscriptions
+    this.userId = null;
+    this.userRole = null;
+    this.isAuthenticated = false;
+    this.eventListeners.clear();
+    this.lastEventTime = 0;
+    console.log("[REAL-TIME] 🔄 Socket client reset");
   }
 }
 

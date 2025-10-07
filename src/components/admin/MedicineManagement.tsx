@@ -93,9 +93,90 @@ export default function MedicineManagement() {
     "Inhaler",
   ];
 
-  useEffect(() => {
-    fetchMedicines();
+  const fetchMedicines = useCallback(async (retryCount = 0) => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        setError("Authentication required");
+        setLoading(false);
+        return;
+      }
+
+      console.log(`Fetching medicines (attempt ${retryCount + 1})...`);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      const response = await fetch("/api/admin/medicines", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const data = await response.json();
+        setMedicines(data.medicines || []);
+        console.log(
+          `Successfully fetched ${data.medicines?.length || 0} medicines`
+        );
+      } else {
+        throw new Error(`HTTP ${response.status}: Failed to fetch medicines`);
+      }
+    } catch (error: unknown) {
+      console.error("Error loading medicines:", error);
+
+      if (
+        retryCount < 3 &&
+        error instanceof Error &&
+        !error.message.includes("Authentication")
+      ) {
+        const delay = Math.pow(2, retryCount) * 1000;
+        console.log(`Retrying in ${delay}ms... (attempt ${retryCount + 1}/3)`);
+        setTimeout(() => {
+          fetchMedicines(retryCount + 1);
+        }, delay);
+        return;
+      }
+
+      const errorMessage =
+        error instanceof Error ? error.message : "Error loading medicines";
+      setError(
+        errorMessage.includes("Authentication")
+          ? "Authentication required - please log in again"
+          : `Failed to load medicines after ${
+              retryCount + 1
+            } attempts. Please refresh the page.`
+      );
+    } finally {
+      if (retryCount === 0) {
+        setLoading(false);
+      }
+    }
   }, []);
+
+  useEffect(() => {
+    fetchMedicines(0);
+
+    // Add loading timeout
+    const loadingTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn(
+          "Medicine management loading timeout - forcing completion"
+        );
+        setError("Loading timeout after 15 seconds. Please refresh the page.");
+        setLoading(false);
+      }
+    }, 15000);
+
+    return () => clearTimeout(loadingTimeout);
+  }, [fetchMedicines]);
 
   const calculateStats = useCallback(() => {
     const totalMedicines = medicines.length;
@@ -120,30 +201,6 @@ export default function MedicineManagement() {
     calculateStats();
   }, [medicines, calculateStats]);
 
-  const fetchMedicines = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem("authToken");
-      const response = await fetch("/api/admin/medicines", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setMedicines(data.medicines || []);
-      } else {
-        setError("Failed to fetch medicines");
-      }
-    } catch (_error: unknown) {
-      setError("Error loading medicines");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleCreateMedicine = async () => {
     try {
       const token = localStorage.getItem("authToken");
@@ -157,7 +214,7 @@ export default function MedicineManagement() {
       });
 
       if (response.ok) {
-        await fetchMedicines();
+        await fetchMedicines(0);
         setShowModal(false);
         resetForm();
       } else {
@@ -187,7 +244,7 @@ export default function MedicineManagement() {
       );
 
       if (response.ok) {
-        await fetchMedicines();
+        await fetchMedicines(0);
         setShowModal(false);
         setEditingMedicine(null);
         resetForm();
@@ -212,7 +269,7 @@ export default function MedicineManagement() {
       });
 
       if (response.ok) {
-        await fetchMedicines();
+        await fetchMedicines(0);
       } else {
         setError("Failed to delete medicine");
       }

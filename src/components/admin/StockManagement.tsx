@@ -87,6 +87,141 @@ export default function StockManagement() {
     totalStockValue: 0,
   });
 
+  const fetchMedicines = useCallback(async (retryCount = 0) => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        setError("Authentication required");
+        setLoading(false);
+        return;
+      }
+
+      console.log(
+        `Fetching medicines for stock (attempt ${retryCount + 1})...`
+      );
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      const response = await fetch("/api/medicines", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const data = await response.json();
+        setMedicines(data.medicines || []);
+        console.log(
+          `Successfully fetched ${
+            data.medicines?.length || 0
+          } medicines for stock`
+        );
+      } else {
+        throw new Error(`HTTP ${response.status}: Failed to fetch medicines`);
+      }
+    } catch (error: unknown) {
+      console.error("Error loading medicines for stock:", error);
+
+      if (
+        retryCount < 3 &&
+        error instanceof Error &&
+        !error.message.includes("Authentication")
+      ) {
+        const delay = Math.pow(2, retryCount) * 1000;
+        console.log(`Retrying in ${delay}ms... (attempt ${retryCount + 1}/3)`);
+        setTimeout(() => {
+          fetchMedicines(retryCount + 1);
+        }, delay);
+        return;
+      }
+
+      const errorMessage =
+        error instanceof Error ? error.message : "Error loading medicines";
+      setError(
+        errorMessage.includes("Authentication")
+          ? "Authentication required - please log in again"
+          : `Failed to load medicines after ${
+              retryCount + 1
+            } attempts. Please refresh the page.`
+      );
+    } finally {
+      if (retryCount === 0) {
+        setLoading(false);
+      }
+    }
+  }, []);
+
+  const fetchTransactions = useCallback(async (retryCount = 0) => {
+    try {
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        console.error("No auth token for transactions");
+        return;
+      }
+
+      console.log(`Fetching stock transactions (attempt ${retryCount + 1})...`);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      const response = await fetch("/api/admin/stock/transactions", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const data = await response.json();
+        setTransactions(data.transactions || []);
+        console.log(
+          `Successfully fetched ${
+            data.transactions?.length || 0
+          } stock transactions`
+        );
+      } else {
+        throw new Error(
+          `HTTP ${response.status}: Failed to fetch transactions`
+        );
+      }
+    } catch (error: unknown) {
+      console.error("Error fetching transactions:", error);
+
+      if (
+        retryCount < 3 &&
+        error instanceof Error &&
+        !error.message.includes("Authentication")
+      ) {
+        const delay = Math.pow(2, retryCount) * 1000;
+        console.log(
+          `Retrying transactions fetch in ${delay}ms... (attempt ${
+            retryCount + 1
+          }/3)`
+        );
+        setTimeout(() => {
+          fetchTransactions(retryCount + 1);
+        }, delay);
+        return;
+      }
+
+      // Don't set global error for transactions, just log it
+      console.warn(
+        `Failed to load transactions after ${retryCount + 1} attempts`
+      );
+    }
+  }, []);
+
   const calculateStats = useCallback(() => {
     const totalItems = medicines.length;
     const lowStockItems = medicines.filter(
@@ -109,57 +244,36 @@ export default function StockManagement() {
   }, [medicines]);
 
   useEffect(() => {
-    fetchMedicines();
-    fetchTransactions();
+    fetchMedicines(0);
+    fetchTransactions(0);
+
+    // Add loading timeout
+    const loadingTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn("Stock management loading timeout - forcing completion");
+        setError("Loading timeout after 15 seconds. Please refresh the page.");
+        setLoading(false);
+      }
+    }, 15000);
+
+    return () => clearTimeout(loadingTimeout);
+  }, [fetchMedicines, fetchTransactions]);
+
+  useEffect(() => {
     calculateStats();
-  }, [calculateStats]);
-
-  const fetchMedicines = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem("authToken");
-      const response = await fetch("/api/medicines", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setMedicines(data.medicines || []);
-      } else {
-        setError("Failed to fetch medicines");
-      }
-    } catch (_error: unknown) {
-      setError("Error loading medicines");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchTransactions = async () => {
-    try {
-      const token = localStorage.getItem("authToken");
-      const response = await fetch("/api/admin/stock/transactions", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setTransactions(data.transactions || []);
-      }
-    } catch (_error: unknown) {
-      console.error("Error fetching transactions:", _error);
-    }
-  };
+  }, [medicines, calculateStats]);
 
   const handleStockUpdate = async () => {
     try {
       const token = localStorage.getItem("authToken");
+      if (!token) {
+        setError("Authentication required");
+        return;
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
       const response = await fetch("/api/admin/stock/update", {
         method: "POST",
         headers: {
@@ -167,18 +281,27 @@ export default function StockManagement() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(stockFormData),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
+
       if (response.ok) {
-        await fetchMedicines();
-        await fetchTransactions();
+        await fetchMedicines(0);
+        await fetchTransactions(0);
         setShowTransactionModal(false);
         resetStockForm();
       } else {
-        setError("Failed to update stock");
+        const errorData = await response.json();
+        setError(errorData.error || "Failed to update stock");
       }
-    } catch (_error: unknown) {
-      setError("Error updating stock");
+    } catch (error: unknown) {
+      console.error("Error updating stock:", error);
+      setError(
+        error instanceof Error && error.name === "AbortError"
+          ? "Stock update timeout - please try again"
+          : "Error updating stock - please try again"
+      );
     }
   };
 
@@ -188,6 +311,14 @@ export default function StockManagement() {
   ) => {
     try {
       const token = localStorage.getItem("authToken");
+      if (!token) {
+        setError("Authentication required");
+        return;
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
       const response = await fetch("/api/admin/stock/restock", {
         method: "POST",
         headers: {
@@ -199,16 +330,25 @@ export default function StockManagement() {
           quantity,
           reason: "Manual restock",
         }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
+
       if (response.ok) {
-        await fetchMedicines();
-        await fetchTransactions();
+        await fetchMedicines(0);
+        await fetchTransactions(0);
       } else {
-        setError("Failed to restock medicine");
+        const errorData = await response.json();
+        setError(errorData.error || "Failed to restock medicine");
       }
-    } catch (_error: unknown) {
-      setError("Error restocking medicine");
+    } catch (error: unknown) {
+      console.error("Error restocking medicine:", error);
+      setError(
+        error instanceof Error && error.name === "AbortError"
+          ? "Restock timeout - please try again"
+          : "Error restocking medicine - please try again"
+      );
     }
   };
 
@@ -261,9 +401,17 @@ export default function StockManagement() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="flex items-center justify-center h-64"
+      >
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading stock management...</p>
+          <p className="text-sm text-gray-500 mt-2">Fetching inventory data</p>
+        </div>
+      </motion.div>
     );
   }
 
@@ -399,11 +547,33 @@ export default function StockManagement() {
         </div>
       </ResponsiveCard>
 
-      {/* Error Display */}
+      {/* Error Display Enhancement */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-          {error}
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4"
+        >
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="w-5 h-5 text-red-600" />
+            <div>
+              <h4 className="text-red-800 font-semibold">
+                Stock Management Error
+              </h4>
+              <p className="text-red-700">{error}</p>
+              <button
+                onClick={() => {
+                  setError("");
+                  fetchMedicines(0);
+                  fetchTransactions(0);
+                }}
+                className="mt-2 text-sm bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+              >
+                Retry Loading
+              </button>
+            </div>
+          </div>
+        </motion.div>
       )}
 
       {/* Stock Table */}
@@ -532,7 +702,7 @@ export default function StockManagement() {
           <ResponsiveButton
             size="sm"
             variant="outline"
-            onClick={fetchTransactions}
+            onClick={() => fetchTransactions(0)}
           >
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh

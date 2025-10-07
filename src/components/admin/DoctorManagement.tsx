@@ -23,7 +23,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 interface Doctor {
   id: string;
@@ -165,42 +165,103 @@ export default function DoctorManagement() {
   ];
   const languagesList = ["English", "Bengali", "Hindi", "Urdu", "Arabic"];
 
-  const fetchDoctors = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem("authToken");
-      // Add status parameter to show all doctors by default
-      const response = await fetch(
-        `/api/admin/doctors?status=${statusFilter}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+  const fetchDoctors = useCallback(
+    async (retryCount = 0) => {
+      try {
+        setLoading(true);
+        setError(""); // Clear previous errors
+
+        const token = localStorage.getItem("authToken");
+        if (!token) {
+          setError("Authentication required");
+          setLoading(false);
+          return;
         }
-      );
 
-      if (response.ok) {
-        const data = await response.json();
-        setDoctors(data.doctors || []);
-      } else {
-        setError("Failed to fetch doctors");
+        console.log(`Fetching doctors (attempt ${retryCount + 1})...`);
+
+        // Add timeout and abort controller for better error handling
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
+        // Add status parameter to show all doctors by default
+        const response = await fetch(
+          `/api/admin/doctors?status=${statusFilter}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            signal: controller.signal,
+          }
+        );
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const data = await response.json();
+          setDoctors(data.doctors || []);
+          console.log(
+            `Successfully fetched ${data.doctors?.length || 0} doctors`
+          );
+        } else {
+          throw new Error(`HTTP ${response.status}: Failed to fetch doctors`);
+        }
+      } catch (error) {
+        console.error("Error loading doctors:", error);
+
+        // Implement exponential backoff retry mechanism (per project specs)
+        if (
+          retryCount < 3 &&
+          error instanceof Error &&
+          !error.message.includes("Authentication")
+        ) {
+          const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+          console.log(
+            `Retrying in ${delay}ms... (attempt ${retryCount + 1}/3)`
+          );
+          setTimeout(() => {
+            fetchDoctors(retryCount + 1);
+          }, delay);
+          return;
+        }
+
+        // After all retries failed or authentication error
+        const errorMessage =
+          error instanceof Error ? error.message : "Error loading doctors";
+        setError(
+          errorMessage.includes("Authentication")
+            ? "Authentication required - please log in again"
+            : `Failed to load doctors after ${
+                retryCount + 1
+              } attempts. Please refresh the page.`
+        );
+      } finally {
+        if (retryCount === 0) {
+          // Only set loading false on the first attempt
+          setLoading(false);
+        }
       }
-    } catch (error) {
-      setError("Error loading doctors");
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    [statusFilter]
+  ); // Only depend on statusFilter
 
   useEffect(() => {
-    fetchDoctors();
+    fetchDoctors(0); // Start with retry count 0
+
+    // Add a safety timeout to prevent infinite loading (per project specs)
+    const loadingTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn("Doctor management loading timeout - forcing completion");
+        setError(
+          "Loading timeout after 15 seconds. The system may be experiencing issues. Please refresh the page."
+        );
+        setLoading(false);
+      }
+    }, 15000); // 15 second timeout to match fetch timeout
+
+    return () => clearTimeout(loadingTimeout);
   }, [fetchDoctors]);
-
-  // Add useEffect to refetch when status filter changes
-  useEffect(() => {
-    fetchDoctors();
-  }, [statusFilter]);
 
   const handleCreateDoctor = async () => {
     try {
@@ -906,7 +967,13 @@ export default function DoctorManagement() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading doctors...</p>
+          <p className="text-sm text-gray-500 mt-2">
+            This may take a few seconds
+          </p>
+        </div>
       </div>
     );
   }

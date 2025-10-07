@@ -24,6 +24,11 @@ import {
 } from "lucide-react";
 import { ResponsiveCard } from "@/components/ResponsiveComponents";
 import { formatCurrency } from "@/lib/utils";
+import {
+  AdminPerformanceProvider,
+  AdminPerformanceWarning,
+  useAdminPerformance,
+} from "@/components/admin/AdminPerformanceProvider";
 
 // Import all the modular admin components
 import DoctorManagement from "@/components/admin/DoctorManagement";
@@ -55,6 +60,16 @@ interface DashboardStats {
 }
 
 export default function AdminDashboard() {
+  return (
+    <AdminPerformanceProvider>
+      <AdminDashboardContent />
+      <AdminPerformanceWarning />
+    </AdminPerformanceProvider>
+  );
+}
+
+function AdminDashboardContent() {
+  const { retryOperation, performanceStatus } = useAdminPerformance();
   const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -72,36 +87,142 @@ export default function AdminDashboard() {
     pendingOrders: 0,
   });
 
-  const fetchDashboardData = useCallback(async () => {
+  const fetchDashboardData = useCallback(async (retryCount = 0) => {
     try {
       setLoading(true);
-      // Use the error state to avoid the unused variable warning
-      if (error) {
-        console.log("Error state is being tracked");
-      }
+      setError(""); // Clear any previous errors
 
       const token = localStorage.getItem("authToken");
+      if (!token) {
+        setError("Authentication required");
+        setLoading(false);
+        return;
+      }
+
+      console.log(`[Dashboard] Loading data (attempt ${retryCount + 1})...`);
+
+      // Reduced timeout to work with optimized API
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+
       const headers = {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       };
 
-      // Fetch dashboard stats
-      const statsResponse = await fetch("/api/dashboard/stats", { headers });
+      // Fetch optimized dashboard stats
+      const statsResponse = await fetch("/api/dashboard/stats", {
+        headers,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
-        setStats(statsData.stats || stats);
+
+        // Handle both optimized and legacy response formats
+        const statsToUse = statsData.stats ||
+          statsData || {
+            totalUsers: 0,
+            totalDoctors: 0,
+            totalPatients: 0,
+            pendingVerifications: 0,
+            totalAppointments: 0,
+            monthlyRevenue: 0,
+            totalMedicines: 0,
+            totalLabPackages: 0,
+            lowStockMedicines: 0,
+            pendingOrders: 0,
+          };
+
+        setStats(statsToUse);
+
+        // Handle performance feedback
+        if (statsData.fallback) {
+          console.warn("[Dashboard] Using fallback data due to system load");
+          setError(
+            "⚠️ Some dashboard data may be incomplete due to high system load"
+          );
+        } else {
+          console.log(
+            `[Dashboard] Successfully loaded ${
+              statsData.cached ? "(cached)" : "(fresh)"
+            }`
+          );
+        }
+      } else if (statsResponse.status === 408) {
+        throw new Error("Dashboard API timeout - system under high load");
+      } else {
+        throw new Error(
+          `HTTP ${statsResponse.status}: Failed to fetch dashboard stats`
+        );
       }
-    } catch (error) {
-      console.error("Dashboard data fetch error:", error);
-      setError("Failed to load dashboard data");
+    } catch (error: unknown) {
+      console.error("[Dashboard] Data fetch error:", error);
+
+      // Reduced retries for faster resolution
+      if (
+        retryCount < 2 &&
+        error instanceof Error &&
+        !error.message.includes("Authentication")
+      ) {
+        const delay = Math.pow(2, retryCount) * 1500; // 1.5s, 3s delays
+        console.log(
+          `[Dashboard] Retrying in ${delay}ms... (attempt ${retryCount + 1}/2)`
+        );
+        setTimeout(() => {
+          fetchDashboardData(retryCount + 1);
+        }, delay);
+        return;
+      }
+
+      // Enhanced error messages
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to load dashboard data";
+
+      if (errorMessage.includes("Authentication")) {
+        setError("🔐 Authentication required - please log in again");
+      } else if (
+        errorMessage.includes("timeout") ||
+        errorMessage.includes("aborted")
+      ) {
+        setError(
+          "⏱️ Dashboard loading timeout - the system is experiencing high load. Please try the retry button."
+        );
+      } else {
+        setError(
+          `⚠️ Failed to load dashboard after ${
+            retryCount + 1
+          } attempts. The system may be under heavy load.`
+        );
+      }
     } finally {
-      setLoading(false);
+      if (retryCount === 0) {
+        setLoading(false);
+      }
     }
-  }, [error, stats]);
+  }, []); // Remove dependencies to prevent infinite loop
 
   useEffect(() => {
-    fetchDashboardData();
+    fetchDashboardData(0); // Start with retry count 0
+
+    // Reduced safety timeout to match optimized API performance
+    const loadingTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn(
+          "[Dashboard] Loading timeout - forcing completion after 12 seconds"
+        );
+        setError(
+          "⏱️ Dashboard loading timeout (12s). System may be under high load. Click retry below."
+        );
+        setLoading(false);
+      }
+    }, 12000); // 12 second timeout (longer than API timeout but much shorter)
+
+    return () => clearTimeout(loadingTimeout);
   }, [fetchDashboardData]);
 
   const navigationItems = [
@@ -138,7 +259,59 @@ export default function AdminDashboard() {
           }}
         >
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading admin dashboard...</p>
+            </div>
+          </div>
+        </ResponsiveLayout>
+      </>
+    );
+  }
+
+  if (error) {
+    return (
+      <>
+        <NavigationHeader currentPage="admin-dashboard" />
+        <ResponsiveLayout
+          title="Admin Dashboard"
+          user={{
+            name: "Admin User",
+            email: "admin@medical.com",
+            role: "ADMIN",
+          }}
+        >
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="bg-red-100 border border-red-300 rounded-lg p-6 max-w-md mx-auto">
+                <div className="text-red-600 text-xl mb-2">⚠️</div>
+                <h3 className="text-lg font-semibold text-red-800 mb-2">
+                  Dashboard Loading Error
+                </h3>
+                <p className="text-red-700 mb-4">{error}</p>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      setError("");
+                      fetchDashboardData(0);
+                    }}
+                    className="w-full bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 mb-2"
+                  >
+                    🔄 Retry Loading
+                  </button>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="w-full bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 text-sm"
+                  >
+                    🔄 Refresh Page
+                  </button>
+                </div>
+                <p className="text-xs text-gray-600 mt-3">
+                  If this continues, the system may be under heavy load. Try
+                  again in a few minutes.
+                </p>
+              </div>
+            </div>
           </div>
         </ResponsiveLayout>
       </>
@@ -247,6 +420,33 @@ export default function AdminDashboard() {
 
                   {/* Content Area */}
                   <div className="space-y-6">
+                    {/* Error Display Enhancement */}
+                    {error && !loading && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <div className="text-red-600 text-xl">⚠️</div>
+                          <div>
+                            <h4 className="text-red-800 font-semibold">
+                              System Notice
+                            </h4>
+                            <p className="text-red-700">{error}</p>
+                            <button
+                              onClick={() => {
+                                setError("");
+                                fetchDashboardData(0);
+                              }}
+                              className="mt-2 text-sm bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+                            >
+                              Retry Connection
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
                     {/* Overview Tab */}
                     {activeTab === "overview" && (
                       <motion.div

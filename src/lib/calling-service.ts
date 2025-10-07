@@ -38,7 +38,6 @@ class CallingService {
   private callResponseCallback: ((response: CallResponse) => void) | null =
     null;
   private callEndedCallback: ((callId: string) => void) | null = null;
-  private isProcessingIncomingCall: boolean = false; // Flag to prevent duplicate processing
 
   private constructor() {
     this.setupSocketListeners();
@@ -52,18 +51,9 @@ class CallingService {
   }
 
   private setupSocketListeners() {
-    // Listen for incoming calls
+    // Listen for incoming calls - this is what the target user receives
     socketClient.on<ActiveCall>("incoming-call", (callData) => {
       console.log("=== CALLING SERVICE: Received incoming call ===", callData);
-
-      // Prevent duplicate processing in mock mode
-      if (this.isProcessingIncomingCall) {
-        console.log(
-          "=== CALLING SERVICE: Skipping duplicate incoming call processing ==="
-        );
-        this.isProcessingIncomingCall = false; // Reset flag
-        return;
-      }
 
       // Store the incoming call
       this.activeCalls.set(callData.callId, {
@@ -79,61 +69,6 @@ class CallingService {
         console.log(
           "=== CALLING SERVICE: No incomingCallCallback registered ==="
         );
-      }
-    });
-
-    // Listen for call initiation requests
-    socketClient.on<CallData>("initiate-call", (callData) => {
-      console.log(
-        "=== CALLING SERVICE: Received call initiation request ===",
-        callData
-      );
-
-      // Convert CallData to ActiveCall
-      const activeCall: ActiveCall = {
-        callId: `call_${Date.now()}_${callData.callerId}_${callData.calleeId}`,
-        callerId: callData.callerId,
-        callerName: callData.callerName,
-        calleeId: callData.calleeId,
-        calleeName: callData.calleeName,
-        appointmentId: callData.appointmentId,
-        channelName: callData.channelName,
-        status: "ringing",
-      };
-
-      console.log(
-        "=== CALLING SERVICE: Converted to ActiveCall ===",
-        activeCall
-      );
-
-      // Store the incoming call
-      this.activeCalls.set(activeCall.callId, {
-        ...activeCall,
-        status: "ringing",
-      });
-
-      // In mock mode, we need to emit an "incoming-call" event to simulate
-      // the server behavior where it would route the call to the callee
-      if (socketClient.isMockMode()) {
-        console.log(
-          "=== CALLING SERVICE: Mock mode - Emitting incoming-call event to callee ==="
-        );
-        // Set flag to prevent duplicate processing
-        this.isProcessingIncomingCall = true;
-        // Emit the incoming-call event to the callee
-        socketClient.emit<ActiveCall>("incoming-call", activeCall);
-      } else {
-        // Notify UI about incoming call directly in non-mock mode
-        if (this.incomingCallCallback) {
-          console.log(
-            "=== CALLING SERVICE: Non-mock mode - Calling incomingCallCallback ==="
-          );
-          this.incomingCallCallback(activeCall);
-        } else {
-          console.log(
-            "=== CALLING SERVICE: Non-mock mode - No incomingCallCallback registered ==="
-          );
-        }
       }
     });
 
@@ -157,6 +92,77 @@ class CallingService {
       // Notify UI about call ended
       if (this.callEndedCallback) {
         this.callEndedCallback(callId);
+      }
+    });
+
+    // 🚨 CRITICAL FIX: Bridge real-time events to calling service
+    // This is the missing link that prevents real patient calls from showing modals
+    console.log("🔗 CALLING SERVICE: Setting up real-time event bridge");
+
+    // Also listen for "initiate-call" events (what patients send)
+    socketClient.on<ActiveCall>("initiate-call", (callData) => {
+      console.log(
+        "🔗 CALLING SERVICE: Received initiate-call event ===",
+        callData
+      );
+
+      // Check if this call is for the current user
+      const currentUserId = localStorage.getItem("userId");
+      console.log("🔗 CALLING SERVICE: Current user ID:", currentUserId);
+      console.log("🔗 CALLING SERVICE: Call target ID:", callData.calleeId);
+
+      if (callData.calleeId !== currentUserId) {
+        console.log("🔗 CALLING SERVICE: Call not for current user, ignoring");
+        return;
+      }
+
+      console.log("🔗 CALLING SERVICE: ✅ This call IS for the current user!");
+
+      // Convert initiate-call to incoming-call for the target user
+      const incomingCall: ActiveCall = {
+        callId:
+          callData.callId ||
+          `call_${Date.now()}_${callData.callerId}_${callData.calleeId}`,
+        callerId: callData.callerId,
+        callerName: callData.callerName,
+        calleeId: callData.calleeId,
+        calleeName: callData.calleeName,
+        appointmentId: callData.appointmentId,
+        channelName: callData.channelName,
+        status: "ringing",
+      };
+
+      console.log(
+        "🔗 CALLING SERVICE: Converted to incoming call:",
+        incomingCall
+      );
+
+      // Store the incoming call
+      this.activeCalls.set(incomingCall.callId, incomingCall);
+
+      // 🚨 CRITICAL: Force trigger the incoming call callback
+      if (this.incomingCallCallback) {
+        console.log(
+          "🔗 CALLING SERVICE: 🚨 TRIGGERING INCOMING CALL CALLBACK 🚨"
+        );
+        // Use setTimeout to ensure it runs after current execution
+        setTimeout(() => {
+          if (this.incomingCallCallback) {
+            console.log("🔗 CALLING SERVICE: 🚨 CALLBACK EXECUTING NOW 🚨");
+            this.incomingCallCallback(incomingCall);
+          } else {
+            console.error("🔗 CALLING SERVICE: ❌ CALLBACK WAS REMOVED!");
+          }
+        }, 50);
+      } else {
+        console.error(
+          "🔗 CALLING SERVICE: ❌ NO INCOMING CALL CALLBACK REGISTERED!"
+        );
+        console.error("🔗 CALLING SERVICE: Available callbacks:", {
+          incomingCallCallback: !!this.incomingCallCallback,
+          callResponseCallback: !!this.callResponseCallback,
+          callEndedCallback: !!this.callEndedCallback,
+        });
       }
     });
   }
@@ -226,17 +232,60 @@ class CallingService {
     // Store the outgoing call
     this.activeCalls.set(callId, activeCall);
 
-    // Emit call initiation event with the original call data
-    const emitData: CallData = {
-      callerId,
-      callerName,
-      calleeId: callData.calleeId,
-      calleeName: callData.calleeName,
-      appointmentId: callData.appointmentId,
-      channelName: callData.channelName,
-    };
+    // CRITICAL FIX: Emit to the real-time system correctly
+    console.log(
+      "=== CALLING SERVICE: Emitting initiate-call event for target user ===",
+      callData.calleeId
+    );
+    console.log("=== CALLING SERVICE: Active call data ===", activeCall);
 
-    socketClient.emit<CallData>("initiate-call", emitData);
+    // 🚨 CRITICAL: Emit BOTH event types to ensure compatibility
+    // Emit initiate-call for the calling service bridge
+    const emitResult1 = socketClient.emit<ActiveCall>(
+      "initiate-call",
+      activeCall
+    );
+    console.log(
+      "=== CALLING SERVICE: Emit initiate-call result ===",
+      emitResult1
+    );
+
+    // Also emit incoming-call directly for immediate compatibility
+    const emitResult2 = socketClient.emit<ActiveCall>(
+      "incoming-call",
+      activeCall
+    );
+    console.log(
+      "=== CALLING SERVICE: Emit incoming-call result ===",
+      emitResult2
+    );
+
+    console.log(
+      "=== CALLING SERVICE: Emitted BOTH initiate-call AND incoming-call events ==="
+    );
+
+    // 🚨 ADDITIONAL DEBUG: Check socket connection status
+    console.log(
+      "=== CALLING SERVICE: Socket connected? ===",
+      socketClient.isConnected()
+    );
+    console.log(
+      "=== CALLING SERVICE: Socket user ID ===",
+      socketClient.getUserId()
+    );
+    console.log(
+      "=== CALLING SERVICE: Socket authenticated? ===",
+      socketClient.isUserAuthenticated()
+    );
+
+    // IMMEDIATE TEST: Also trigger the callback directly for testing
+    console.log("=== CALLING SERVICE: Testing direct callback trigger ===");
+    if (this.incomingCallCallback) {
+      setTimeout(() => {
+        console.log("=== CALLING SERVICE: Direct callback test triggered ===");
+        this.incomingCallCallback!(activeCall);
+      }, 100);
+    }
 
     return activeCall;
   }
@@ -327,6 +376,38 @@ class CallingService {
     if (this.incomingCallCallback) {
       this.incomingCallCallback(callData);
     }
+  }
+
+  // EMERGENCY TEST METHOD: Force trigger incoming call for debugging
+  public forceTestIncomingCall(doctorId: string, doctorName: string): void {
+    console.log(
+      "🚨 EMERGENCY TEST: Forcing incoming call for doctor",
+      doctorId
+    );
+
+    const testCall: ActiveCall = {
+      callId: `test_call_${Date.now()}`,
+      callerId: "test_patient_123",
+      callerName: "Test Patient",
+      calleeId: doctorId,
+      calleeName: doctorName,
+      appointmentId: "test_appointment_123",
+      channelName: `test_channel_${Date.now()}`,
+      status: "ringing",
+    };
+
+    // Store the test call
+    this.activeCalls.set(testCall.callId, testCall);
+
+    // Force trigger both pathways
+    console.log("🚨 EMERGENCY TEST: Triggering direct callback");
+    if (this.incomingCallCallback) {
+      this.incomingCallCallback(testCall);
+    }
+
+    // Also emit to real-time system
+    console.log("🚨 EMERGENCY TEST: Emitting to real-time system");
+    socketClient.emit<ActiveCall>("incoming-call", testCall);
   }
 
   // Get active call by ID

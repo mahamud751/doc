@@ -17,17 +17,108 @@ export default function OutgoingCallIndicator({
   const [callDuration, setCallDuration] = useState(0);
   const [callStatus, setCallStatus] = useState("ringing"); // ringing, connected, ended
 
+  const joinVideoCall = async () => {
+    try {
+      const uid = Math.floor(Math.random() * 1000000);
+      const token = localStorage.getItem("authToken");
+      const userRole = localStorage.getItem("userRole");
+
+      if (!token) {
+        console.error("[OUTGOING CALL] No auth token found");
+        window.location.href = "/auth/login";
+        return;
+      }
+
+      console.log("[OUTGOING CALL] Generating Agora token for video call", {
+        channelName: call.channelName,
+        uid,
+        userRole,
+      });
+
+      const response = await fetch("/api/agora/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          channelName: call.channelName,
+          uid,
+          role: userRole,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.error ||
+            `HTTP ${response.status}: Failed to generate video call token`
+        );
+      }
+
+      const tokenData = await response.json();
+      console.log("[OUTGOING CALL] Token response received", {
+        hasToken: !!tokenData.token,
+        hasAppId: !!tokenData.appId,
+      });
+
+      // Validate required data
+      if (!tokenData.token || !tokenData.appId) {
+        throw new Error("Invalid token response from server");
+      }
+
+      // Redirect to video call
+      const callUrl =
+        userRole === "DOCTOR"
+          ? `/doctor/video-call?channel=${encodeURIComponent(
+              call.channelName
+            )}&token=${encodeURIComponent(
+              tokenData.token
+            )}&uid=${uid}&appId=${encodeURIComponent(tokenData.appId)}`
+          : `/patient/video-call?channel=${encodeURIComponent(
+              call.channelName
+            )}&token=${encodeURIComponent(
+              tokenData.token
+            )}&uid=${uid}&appId=${encodeURIComponent(tokenData.appId)}`;
+
+      console.log("[OUTGOING CALL] Redirecting to video call", callUrl);
+
+      // Open video call in new tab
+      const newWindow = window.open(callUrl, "_blank");
+
+      if (!newWindow) {
+        throw new Error("Popup blocked. Please allow popups for this site.");
+      }
+    } catch (error) {
+      console.error("[OUTGOING CALL] Error joining video call:", error);
+
+      let errorMessage = "Failed to join video call. ";
+      if (error instanceof Error) {
+        errorMessage += error.message;
+      } else {
+        errorMessage += "Please try again.";
+      }
+
+      alert(errorMessage);
+      throw error;
+    }
+  };
+
   useEffect(() => {
     // Set up listener for call responses
-    const handleCallResponse = (response: any) => {
+    const handleCallResponse = async (response: any) => {
       if (
         response.callerId === call.callerId &&
         response.appointmentId === call.appointmentId
       ) {
         if (response.accepted) {
           setCallStatus("connected");
-          // Call is connected, but we'll close this indicator since the video call
-          // will open in a new window/tab
+          console.log("[OUTGOING CALL] Call accepted, joining video call...");
+
+          // Join video call when the call is accepted
+          await joinVideoCall();
+
+          // Close indicator after joining video call
           onCancel();
         } else {
           setCallStatus("ended");

@@ -31,6 +31,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import IncomingCallModal from "@/components/IncomingCallModal";
+import { agoraCallingService } from "@/lib/agora-calling-service";
+import { callNotifications } from "@/lib/call-notifications";
 
 interface PatientData {
   id: string;
@@ -139,6 +141,7 @@ export default function PatientDashboard() {
   const [labOrders, setLabOrders] = useState<Order[]>([]);
   const [, setMedicalHistory] = useState<string[]>([]);
   const [, setAllergies] = useState<string[]>([]);
+  const [, setOutgoingCall] = useState<string | null>(null); // Just track call ID now
 
   const [, setNotifications] = useState<Record<string, unknown>[]>([]);
   const [unreadMessages, setUnreadMessages] = useState(0);
@@ -177,10 +180,16 @@ export default function PatientDashboard() {
     // Initialize socket connection
     const token = localStorage.getItem("authToken");
     const userId = localStorage.getItem("userId");
+    const userRole = localStorage.getItem("userRole") || "patient"; // Default to patient role
 
     if (token && userId) {
       try {
-        socketClient.connect(token, userId);
+        console.log("🔌 Patient Dashboard: Connecting to socket with:", {
+          userId,
+          userRole,
+          hasToken: !!token,
+        });
+        socketClient.connect(token, userId, userRole);
         socketClient.joinNotifications();
 
         // Listen for appointment updates
@@ -448,6 +457,60 @@ export default function PatientDashboard() {
 
       alert(`Failed to join video call: ${errorMessage}. Please try again.`);
     }
+  };
+
+  // New simplified call initiation using only Agora SDK
+  const initiateVideoCall = async (appointment: Appointment) => {
+    try {
+      console.log("Patient starting Agora video call to doctor:", {
+        appointmentId: appointment.id,
+        doctorId: appointment.doctor.id,
+        doctorName: appointment.doctor.name,
+      });
+
+      // Start call using Agora service
+      const { callSession, callUrl } = await agoraCallingService.startVideoCall(
+        appointment.id,
+        appointment.doctor.id,
+        appointment.doctor.name
+      );
+
+      console.log("Agora call started:", callSession);
+
+      // Notify about call start
+      callNotifications.notifyCallStarted(
+        appointment.id,
+        appointment.doctor.name
+      );
+
+      // Open video call in new window
+      const newWindow = window.open(callUrl, "_blank");
+      if (!newWindow) {
+        throw new Error("Popup blocked. Please allow popups for this site.");
+      }
+
+      // Track the call
+      setOutgoingCall(callSession.callId);
+    } catch (error) {
+      console.error("Error starting video call:", error);
+
+      // Notify about call failure
+      callNotifications.notifyCallFailed(
+        appointment.id,
+        error instanceof Error ? error.message : "Unknown error"
+      );
+
+      alert(
+        `Failed to start video call: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }. Please try again.`
+      );
+    }
+  };
+
+  const handleCancelOutgoingCall = () => {
+    // With Agora-only approach, just clear the call tracking
+    setOutgoingCall(null);
   };
 
   if (loading) {
@@ -963,9 +1026,14 @@ export default function PatientDashboard() {
                                             </motion.div>
                                           </Link>
                                         ) : (
-                                          <Button className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-full shadow-lg">
+                                          <Button
+                                            onClick={() =>
+                                              initiateVideoCall(appointment)
+                                            }
+                                            className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-full shadow-lg"
+                                          >
                                             <Video className="h-4 w-4 mr-2" />
-                                            Join Call
+                                            Call Doctor
                                           </Button>
                                         )}
                                       </div>
@@ -1549,11 +1617,11 @@ export default function PatientDashboard() {
                                         <Button
                                           className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-full shadow-lg"
                                           onClick={() =>
-                                            joinVideoCall(appointment)
+                                            initiateVideoCall(appointment)
                                           }
                                         >
                                           <Video className="h-4 w-4 mr-2" />
-                                          Join Call
+                                          Call Doctor
                                         </Button>
                                       </motion.div>
                                     )}

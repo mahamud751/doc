@@ -1,195 +1,228 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { callingService, ActiveCall } from "@/lib/calling-service";
-import { socketClient } from "@/lib/socket-client";
-import IncomingCallModal from "@/components/IncomingCallModal";
+import IncomingCallModal, {
+  IncomingCallData,
+} from "@/components/IncomingCallModal";
 
+// Define the Agora incoming call interface (same as IncomingCallsDisplay)
+interface AgoraIncomingCall {
+  callId: string;
+  callerId: string;
+  callerName: string;
+  calleeId: string;
+  calleeName: string;
+  appointmentId: string;
+  channelName: string;
+  timestamp: Date;
+}
+
+// Global component to show incoming call modals anywhere in the app
 export default function GlobalIncomingCallHandler() {
   const [userId, setUserId] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [incomingCall, setIncomingCall] = useState<ActiveCall | null>(null);
+  const [userRole, setUserRole] = useState<string>("");
+  const [isMounted, setIsMounted] = useState(false);
+  const [incomingCall, setIncomingCall] = useState<IncomingCallData | null>(
+    null
+  );
+  const [isPolling, setIsPolling] = useState(false);
 
-  // Get user info from localStorage
+  // Mount check for SSR
   useEffect(() => {
-    const fetchUserInfo = () => {
-      try {
-        const token = localStorage.getItem("authToken");
-        const storedUserId = localStorage.getItem("userId");
-        const storedUserName = localStorage.getItem("userName");
-        const userRole = localStorage.getItem("userRole");
-
-        console.log(
-          "GlobalIncomingCallHandler: Fetching user info from localStorage",
-          {
-            token,
-            storedUserId,
-            storedUserName,
-            userRole,
-          }
-        );
-
-        if (token && storedUserId && storedUserName) {
-          setUserId(storedUserId);
-          setUserName(storedUserName);
-          console.log(
-            "GlobalIncomingCallHandler: User info set from localStorage",
-            {
-              userId: storedUserId,
-              userName: storedUserName,
-            }
-          );
-        }
-      } catch (error) {
-        console.error(
-          "GlobalIncomingCallHandler: Error fetching user info:",
-          error
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchUserInfo();
-
-    // Also listen for storage changes in case user logs in/out
-    const handleStorageChange = (e: StorageEvent) => {
-      console.log("GlobalIncomingCallHandler: Storage change event", e);
-      if (e.key === "authToken" || e.key === "userId" || e.key === "userName") {
-        fetchUserInfo();
-      }
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
+    setIsMounted(true);
   }, []);
 
-  // Initialize socket connection and set up calling service listeners
+  // Load user context
   useEffect(() => {
-    console.log("GlobalIncomingCallHandler: User effect triggered", {
-      userId,
-      userName,
-      isLoading,
-    });
-
-    // For testing purposes, if we don't have user info from localStorage,
-    // check if we're in a test environment
-    if (!userId || !userName) {
-      // In test environments, we might want to use dummy values
-      // But only if we're not in production and localStorage is empty
-      const isTestEnv =
-        typeof window !== "undefined" &&
-        window.location.hostname === "localhost";
-      if (isTestEnv) {
-        console.log(
-          "GlobalIncomingCallHandler: Test environment detected, but no user info"
-        );
-      }
+    if (!isMounted) {
       return;
     }
 
-    const token = localStorage.getItem("authToken");
-    if (token) {
-      console.log(
-        "GlobalIncomingCallHandler: Setting up socket and listeners",
-        { token, userId, userName }
-      );
-
-      // Connect socket if not already connected, with userId
-      if (!socketClient.isConnected()) {
-        socketClient.connect(token, userId);
-      } else {
-        // Update the userId in socketClient if it's already connected
-        socketClient.connect(token, userId);
+    const loadUserContext = () => {
+      if (typeof window === "undefined") {
+        console.log("⚠️ GlobalIncomingCallHandler: Window not available (SSR)");
+        return;
       }
 
-      // Set up listener for incoming calls
-      const handleIncomingCall = (call: ActiveCall) => {
-        console.log("GlobalIncomingCallHandler: Received incoming call", call);
-        console.log("GlobalIncomingCallHandler: Current user info", {
-          userId,
-          userName,
-        });
-        console.log("GlobalIncomingCallHandler: Call info", {
-          calleeId: call.calleeId,
-          callerId: call.callerId,
-          isCallee: call.calleeId === userId,
-        });
+      const storedUserId = localStorage.getItem("userId");
+      const storedUserName = localStorage.getItem("userName");
+      const storedUserRole = localStorage.getItem("userRole");
 
-        // Only set incoming call if this user is the callee
-        if (call.calleeId === userId) {
-          console.log(
-            "GlobalIncomingCallHandler: Setting incoming call for user"
-          );
-          setIncomingCall(call);
-        } else {
-          console.log(
-            "GlobalIncomingCallHandler: This call is not for this user"
-          );
-        }
-      };
+      console.log("✅ GlobalIncomingCallHandler: Loading user context", {
+        storedUserId,
+        storedUserName,
+        storedUserRole,
+      });
 
-      callingService.onIncomingCall(handleIncomingCall);
-
-      // Set up listener for call responses
-      const handleCallResponse = (response: any) => {
+      if (storedUserId && storedUserName && storedUserRole) {
+        setUserId(storedUserId);
+        setUserName(storedUserName);
+        setUserRole(storedUserRole);
         console.log(
-          "GlobalIncomingCallHandler: Received call response",
-          response
+          "✅ GlobalIncomingCallHandler: User context loaded successfully"
         );
-      };
+      } else {
+        console.log("⚠️ GlobalIncomingCallHandler: Missing user context");
+      }
+    };
 
-      callingService.onCallResponse(handleCallResponse);
+    loadUserContext();
 
-      // Set up listener for call ended
-      const handleCallEnded = (callId: string) => {
-        console.log("GlobalIncomingCallHandler: Received call ended", callId);
-        // Clear incoming call if it matches
-        if (incomingCall && incomingCall.callId === callId) {
-          setIncomingCall(null);
-        }
-      };
+    // Listen for storage changes
+    const handleStorageChange = () => {
+      loadUserContext();
+    };
 
-      callingService.onCallEnded(handleCallEnded);
+    window.addEventListener("storage", handleStorageChange);
 
-      // Cleanup function to remove listeners
-      return () => {
-        console.log("GlobalIncomingCallHandler: Cleaning up listeners");
-        callingService.offIncomingCall();
-        callingService.offCallResponse();
-        callingService.offCallEnded();
-        setIncomingCall(null); // Clear incoming call on cleanup
-      };
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, [isMounted]);
+
+  // 🔥 NEW: Agora-based incoming call polling (same as IncomingCallsDisplay)
+  const checkForIncomingCalls = async () => {
+    if (!userId || userRole !== "DOCTOR") {
+      return; // Only doctors receive calls globally
     }
-  }, [userId, userName, incomingCall]); // Add incomingCall to dependencies
 
-  console.log("GlobalIncomingCallHandler: Rendering", {
-    isLoading,
+    try {
+      const response = await fetch(
+        `/api/agora/notify-incoming-call?doctorId=${encodeURIComponent(userId)}`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+
+        if (data.success && data.calls && data.calls.length > 0) {
+          console.log(
+            "📞 GlobalIncomingCallHandler: Found incoming calls",
+            data.calls
+          );
+
+          // Show the first incoming call as modal
+          const call = data.calls[0];
+          const modalCall: IncomingCallData = {
+            callId: call.callId,
+            callerName: call.callerName,
+            channelName: call.channelName,
+            appointmentId: call.appointmentId,
+          };
+
+          console.log(
+            "📞 GlobalIncomingCallHandler: Showing modal for call",
+            modalCall
+          );
+          setIncomingCall(modalCall);
+        }
+      }
+    } catch (error) {
+      console.error(
+        "📞 GlobalIncomingCallHandler: Error checking calls:",
+        error
+      );
+    }
+  };
+
+  // Set up polling for incoming calls (only for doctors)
+  useEffect(() => {
+    if (!isMounted || !userId || userRole !== "DOCTOR" || isPolling) {
+      return;
+    }
+
+    console.log(
+      "📞 GlobalIncomingCallHandler: Starting Agora polling for",
+      userRole
+    );
+    setIsPolling(true);
+
+    // Initial check
+    checkForIncomingCalls();
+
+    // Poll every 3 seconds for incoming calls
+    const pollInterval = setInterval(checkForIncomingCalls, 3000);
+
+    return () => {
+      console.log("📞 GlobalIncomingCallHandler: Stopping Agora polling");
+      clearInterval(pollInterval);
+      setIsPolling(false);
+    };
+  }, [isMounted, userId, userRole, isPolling]);
+
+  // Handle modal close
+  const handleModalClose = async () => {
+    console.log("📴 GlobalIncomingCallHandler: Closing modal");
+
+    if (incomingCall) {
+      // Remove from API storage when closing
+      try {
+        await fetch(
+          `/api/agora/notify-incoming-call?doctorId=${encodeURIComponent(
+            userId
+          )}&callId=${encodeURIComponent(incomingCall.callId)}`,
+          { method: "DELETE" }
+        );
+      } catch (error) {
+        console.error(
+          "📞 GlobalIncomingCallHandler: Error removing call:",
+          error
+        );
+      }
+    }
+
+    setIncomingCall(null);
+  };
+
+  // Don't render anything until mounted on client
+  if (!isMounted) {
+    return null;
+  }
+
+  console.log("🔄 GlobalIncomingCallHandler: Rendering", {
+    hasIncomingCall: !!incomingCall,
     userId,
     userName,
-    incomingCall,
+    userRole,
+    isMounted,
+    isPolling,
   });
 
-  if (isLoading) {
-    console.log("GlobalIncomingCallHandler: Still loading");
-    return null;
-  }
+  return (
+    <>
+      {/* Status indicator */}
+      {userId && (
+        <div
+          style={{
+            position: "fixed",
+            top: "10px",
+            left: "10px",
+            background: incomingCall ? "red" : isPolling ? "green" : "gray",
+            padding: "5px 10px",
+            borderRadius: "5px",
+            fontSize: "12px",
+            zIndex: 9999,
+            color: "white",
+          }}
+        >
+          {incomingCall
+            ? `📞 INCOMING: ${incomingCall.callerName}`
+            : isPolling
+            ? `✅ Agora Global: ${userName} (${userRole})`
+            : `⚠️ Agora Global: ${userName} (${userRole}) - Not Polling`}
+        </div>
+      )}
 
-  if (!userId || !userName) {
-    console.log("GlobalIncomingCallHandler: No user info, returning null");
-    return null;
-  }
-
-  // Only render the modal if there's an incoming call
-  console.log("GlobalIncomingCallHandler: Checking if modal should be shown", {
-    hasIncomingCall: !!incomingCall,
-  });
-  return incomingCall ? (
-    <IncomingCallModal
-      userId={userId}
-      userName={userName}
-      incomingCall={incomingCall} // Pass the incoming call to the modal
-    />
-  ) : null;
+      {/* Incoming call modal */}
+      {incomingCall && userId && userName && userRole && (
+        <IncomingCallModal
+          userId={userId}
+          userName={userName}
+          userRole={userRole}
+          incomingCall={incomingCall}
+          onClose={handleModalClose}
+        />
+      )}
+    </>
+  );
 }

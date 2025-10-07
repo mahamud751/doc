@@ -21,7 +21,7 @@ import {
   User,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 interface Appointment {
   id: string;
@@ -120,37 +120,98 @@ export default function AppointmentManagement() {
     completedAppointments: 0,
   });
 
-  useEffect(() => {
-    fetchAppointments();
-    fetchDoctors();
-    fetchPatients();
-    calculateStats();
-  }, [appointments]);
-
-  const fetchAppointments = async () => {
+  const fetchAppointments = useCallback(async (retryCount = 0) => {
     try {
       setLoading(true);
+      setError("");
+
       const token = localStorage.getItem("authToken");
+      if (!token) {
+        setError("Authentication required");
+        setLoading(false);
+        return;
+      }
+
+      console.log(`Fetching appointments (attempt ${retryCount + 1})...`);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
       const response = await fetch("/api/appointments", {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (response.ok) {
         const data = await response.json();
         setAppointments(data.appointments || []);
+        console.log(
+          `Successfully fetched ${data.appointments?.length || 0} appointments`
+        );
       } else {
-        setError("Failed to fetch appointments");
+        throw new Error(
+          `HTTP ${response.status}: Failed to fetch appointments`
+        );
       }
-    } catch (err) {
-      console.error("Error loading appointments:", err);
-      setError("Error loading appointments");
+    } catch (error: unknown) {
+      console.error("Error loading appointments:", error);
+
+      if (
+        retryCount < 3 &&
+        error instanceof Error &&
+        !error.message.includes("Authentication")
+      ) {
+        const delay = Math.pow(2, retryCount) * 1000;
+        console.log(`Retrying in ${delay}ms... (attempt ${retryCount + 1}/3)`);
+        setTimeout(() => {
+          fetchAppointments(retryCount + 1);
+        }, delay);
+        return;
+      }
+
+      const errorMessage =
+        error instanceof Error ? error.message : "Error loading appointments";
+      setError(
+        errorMessage.includes("Authentication")
+          ? "Authentication required - please log in again"
+          : `Failed to load appointments after ${
+              retryCount + 1
+            } attempts. Please refresh the page.`
+      );
     } finally {
-      setLoading(false);
+      if (retryCount === 0) {
+        setLoading(false);
+      }
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchAppointments(0);
+    fetchDoctors();
+    fetchPatients();
+
+    // Add loading timeout
+    const loadingTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn(
+          "Appointment management loading timeout - forcing completion"
+        );
+        setError("Loading timeout after 15 seconds. Please refresh the page.");
+        setLoading(false);
+      }
+    }, 15000);
+
+    return () => clearTimeout(loadingTimeout);
+  }, [fetchAppointments]);
+
+  useEffect(() => {
+    calculateStats();
+  }, [appointments]);
 
   const fetchDoctors = async () => {
     try {

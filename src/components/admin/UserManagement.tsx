@@ -89,37 +89,96 @@ export default function UserManagement() {
     setStats({ totalUsers, activeUsers, verifiedUsers, newUsersToday });
   }, [users]);
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  useEffect(() => {
-    calculateStats();
-  }, [users, calculateStats]);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async (retryCount = 0) => {
     try {
       setLoading(true);
+      setError(""); // Clear previous errors
+
       const token = localStorage.getItem("authToken");
+      if (!token) {
+        setError("Authentication required");
+        setLoading(false);
+        return;
+      }
+
+      console.log(`Fetching users (attempt ${retryCount + 1})...`);
+
+      // Add timeout and abort controller for better error handling
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
       const response = await fetch("/api/admin/users", {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (response.ok) {
         const data = await response.json();
         setUsers(data.users || []);
+        console.log(`Successfully fetched ${data.users?.length || 0} users`);
       } else {
-        setError("Failed to fetch users");
+        throw new Error(`HTTP ${response.status}: Failed to fetch users`);
       }
-    } catch (_error: unknown) {
-      setError("Error loading users");
+    } catch (error: unknown) {
+      console.error("Error loading users:", error);
+
+      // Retry logic with exponential backoff
+      if (
+        retryCount < 3 &&
+        error instanceof Error &&
+        !error.message.includes("Authentication")
+      ) {
+        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+        console.log(`Retrying in ${delay}ms... (attempt ${retryCount + 1}/3)`);
+        setTimeout(() => {
+          fetchUsers(retryCount + 1);
+        }, delay);
+        return;
+      }
+
+      // After all retries failed or authentication error
+      const errorMessage =
+        error instanceof Error ? error.message : "Error loading users";
+      setError(
+        errorMessage.includes("Authentication")
+          ? "Authentication required - please log in again"
+          : `Failed to load users after ${
+              retryCount + 1
+            } attempts. Please refresh the page.`
+      );
     } finally {
-      setLoading(false);
+      if (retryCount === 0) {
+        // Only set loading false on the first attempt
+        setLoading(false);
+      }
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchUsers(0); // Start with retry count 0
+
+    // Add a safety timeout to prevent infinite loading (per project specs)
+    const loadingTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn("User management loading timeout - forcing completion");
+        setError(
+          "Loading timeout after 15 seconds. The system may be experiencing issues. Please refresh the page."
+        );
+        setLoading(false);
+      }
+    }, 15000); // 15 second timeout to match fetch timeout
+
+    return () => clearTimeout(loadingTimeout);
+  }, [fetchUsers]);
+
+  useEffect(() => {
+    calculateStats();
+  }, [users, calculateStats]);
 
   const handleCreateUser = async () => {
     try {
@@ -134,7 +193,7 @@ export default function UserManagement() {
       });
 
       if (response.ok) {
-        await fetchUsers();
+        await fetchUsers(0);
         setShowModal(false);
         resetForm();
       } else {
@@ -161,7 +220,7 @@ export default function UserManagement() {
       });
 
       if (response.ok) {
-        await fetchUsers();
+        await fetchUsers(0);
         setShowModal(false);
         setEditingUser(null);
         resetForm();
@@ -186,7 +245,7 @@ export default function UserManagement() {
       });
 
       if (response.ok) {
-        await fetchUsers();
+        await fetchUsers(0);
       } else {
         setError("Failed to delete user");
       }
@@ -208,7 +267,7 @@ export default function UserManagement() {
       });
 
       if (response.ok) {
-        await fetchUsers();
+        await fetchUsers(0);
       } else {
         setError("Failed to update user status");
       }

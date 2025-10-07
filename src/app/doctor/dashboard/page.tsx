@@ -10,7 +10,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/Card";
-import { socketClient } from "@/lib/socket-client";
+import { agoraCallingService } from "@/lib/agora-calling-service";
+import { callNotifications } from "@/lib/call-notifications";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -25,6 +26,7 @@ import {
   Edit,
   FileText,
   Loader2,
+  Phone,
   Plus,
   Settings,
   Star,
@@ -37,6 +39,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import IncomingCallModal from "@/components/IncomingCallModal";
+import { callingService, ActiveCall } from "@/lib/calling-service";
+import OutgoingCallIndicator from "@/components/OutgoingCallIndicator";
+import IncomingCallsDisplay from "@/components/IncomingCallsDisplay";
 
 // Define interfaces for the data structures
 interface DoctorProfile {
@@ -154,76 +159,21 @@ export default function DoctorDashboard() {
   useEffect(() => {
     fetchDashboardData();
 
-    // Initialize socket connection
-    const token = localStorage.getItem("authToken");
-    const userId = localStorage.getItem("userId");
+    // With Agora-only approach, we don't need socket connections
+    // Just refresh data periodically
+    const refreshInterval = setInterval(() => {
+      fetchDashboardData();
+    }, 30000); // Refresh every 30 seconds
 
-    if (token && userId) {
-      socketClient.connect(token, userId);
-
-      // Set up a one-time connection handler
-      const connectHandler = () => {
-        console.log("Socket connected, joining notifications");
-        socketClient.joinNotifications();
-      };
-
-      // If already connected, join immediately
-      if (socketClient.isConnected()) {
-        socketClient.joinNotifications();
-      } else {
-        // Otherwise wait for connection
-        socketClient.on("connect", connectHandler);
-      }
-
-      // Listen for appointment updates
-      const handleAppointmentUpdate = () => {
-        // Update appointment list in real-time
-        fetchDashboardData();
-      };
-
-      const handleNewMessage = () => {
-        // This function is kept for the useEffect dependencies but doesn't do anything
-        // since unreadMessages state variable was removed
-      };
-
-      const handleStatusChange = (statusUpdate: unknown) => {
-        if (
-          statusUpdate &&
-          typeof statusUpdate === "object" &&
-          "doctorId" in statusUpdate &&
-          doctorDataRef.current &&
-          (statusUpdate as { doctorId: string }).doctorId ===
-            doctorDataRef.current.id
-        ) {
-          // Update doctor status
-        }
-      };
-
-      socketClient.on("appointment-update", handleAppointmentUpdate);
-      socketClient.on("new-message", handleNewMessage);
-      socketClient.on("doctor-status-change", handleStatusChange);
-
-      // Send heartbeat periodically
-      const heartbeatInterval = setInterval(() => {
-        if (socketClient.isConnected()) {
-          socketClient.sendHeartbeat();
-        }
-      }, 30000); // Every 30 seconds
-
-      return () => {
-        clearInterval(heartbeatInterval);
-        socketClient.off("appointment-update", handleAppointmentUpdate);
-        socketClient.off("new-message", handleNewMessage);
-        socketClient.off("doctor-status-change", handleStatusChange);
-        socketClient.off("connect", connectHandler);
-        // Don't disconnect the socket here as it might be used elsewhere
-      };
-    }
+    return () => {
+      clearInterval(refreshInterval);
+    };
   }, [fetchDashboardData]); // Removed doctorData from dependencies
 
   const updateDoctorStatus = (status: "online" | "busy" | "away") => {
     setOnlineStatus(status);
-    socketClient.updateStatus(status);
+    // With Agora-only approach, status is just local UI state
+    console.log(`Doctor status updated to: ${status}`);
   };
 
   // Filter today's appointments
@@ -427,8 +377,6 @@ export default function DoctorDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <NavigationHeader />
 
-      {/* Remove the direct IncomingCallModal render as it's handled by GlobalIncomingCallHandler */}
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Enhanced Sidebar */}
@@ -515,6 +463,11 @@ export default function DoctorDashboard() {
                         id: "appointments",
                         label: "Appointments",
                         icon: Calendar,
+                      },
+                      {
+                        id: "incoming-calls",
+                        label: "Incoming Calls",
+                        icon: Phone,
                       },
                       { id: "patients", label: "My Patients", icon: Users },
                       { id: "schedule", label: "Schedule", icon: Clock },
@@ -757,10 +710,15 @@ export default function DoctorDashboard() {
                                           </motion.div>
                                         </Link>
                                       ) : (
-                                        <Button className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-full shadow-lg">
-                                          <Video className="h-4 w-4 mr-2" />
-                                          Start Call
-                                        </Button>
+                                        <div className="text-center py-3">
+                                          <p className="text-gray-600 text-sm">
+                                            📞 Patient can call you
+                                          </p>
+                                          <p className="text-gray-500 text-xs mt-1">
+                                            Check "Incoming Calls" tab for
+                                            real-time notifications
+                                          </p>
+                                        </div>
                                       )}
                                     </div>
                                   </div>
@@ -883,10 +841,14 @@ export default function DoctorDashboard() {
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                               >
-                                <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-full shadow-lg">
-                                  <Video className="h-4 w-4 mr-2" />
-                                  Prepare for Call
-                                </Button>
+                                <div className="w-full text-center py-3 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-full">
+                                  <p className="text-blue-800 font-semibold text-sm">
+                                    📞 Patient will call you
+                                  </p>
+                                  <p className="text-blue-600 text-xs">
+                                    Check "Incoming Calls" tab
+                                  </p>
+                                </div>
                               </motion.div>
                             </div>
                           ) : (
@@ -921,6 +883,30 @@ export default function DoctorDashboard() {
                     doctorId={doctorData?.id || ""}
                     doctorName={doctorData?.name || ""}
                   />
+                </motion.div>
+              )}
+
+              {/* Incoming Calls Tab */}
+              {activeTab === "incoming-calls" && (
+                <motion.div
+                  key="incoming-calls"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-6"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h1 className="text-4xl font-bold text-gray-900">
+                        📞 Incoming Calls
+                      </h1>
+                      <p className="text-gray-600 mt-2">
+                        Receive and manage patient call requests in real-time
+                      </p>
+                    </div>
+                  </div>
+
+                  <IncomingCallsDisplay userRole="DOCTOR" />
                 </motion.div>
               )}
 

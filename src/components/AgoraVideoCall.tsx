@@ -13,6 +13,7 @@ import {
   VideoOff,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { agoraCallingService } from "@/lib/agora-calling-service";
 
 // Type definitions for Agora RTC SDK
 interface IAgoraRTCClient {
@@ -129,10 +130,20 @@ export default function AgoraVideoCall({
       });
 
       if (!response.ok) {
-        throw new Error("Failed to generate Agora token");
+        const errorData = await response.json();
+        throw new Error(
+          errorData.error || `HTTP ${response.status}: Token generation failed`
+        );
       }
 
-      return await response.json();
+      const tokenData = await response.json();
+      console.log("AgoraVideoCall: Token generated successfully", {
+        hasToken: !!tokenData.token,
+        hasAppId: !!tokenData.appId,
+        channelName,
+        uid,
+      });
+      return tokenData;
     } catch (error) {
       console.error("Token generation error:", error);
       throw error;
@@ -140,44 +151,62 @@ export default function AgoraVideoCall({
   };
 
   const initializeAgoraClient = useCallback(async () => {
-    if (!AgoraRTC) return;
+    if (!AgoraRTC) {
+      console.error("AgoraRTC not loaded yet");
+      return;
+    }
 
     try {
       setConnectionStatus("connecting");
+      console.log("AgoraVideoCall: Initializing Agora client...");
 
-      // Get Agora token (can be null for testing)
+      // Get Agora token
       let tokenData;
       try {
         tokenData = await generateAgoraToken();
+        console.log("AgoraVideoCall: Token received", {
+          hasToken: !!tokenData.token,
+          hasAppId: !!tokenData.appId,
+        });
       } catch (error) {
         console.warn(
-          "Failed to generate Agora token, proceeding without token:",
+          "AgoraVideoCall: Failed to generate token, trying with App ID from env:",
           error
         );
-        // Use null token for testing purposes
-        // Make sure we have a valid App ID
+        // Use environment App ID as fallback
         const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID || "";
 
         // Validate App ID format before using it
         if (!appId || appId.length !== 32) {
-          throw new Error("Invalid Agora App ID configuration");
+          throw new Error(
+            `Invalid Agora App ID configuration. Expected 32 characters, got ${appId.length}. Please check your environment variables.`
+          );
         }
 
         tokenData = {
           appId: appId,
-          token: null,
+          token: null, // Use null for testing
           channel: channelName,
           uid: uid,
           expires: 0,
         };
+        console.log("AgoraVideoCall: Using fallback configuration", {
+          appId: appId.substring(0, 8) + "...",
+          hasToken: false,
+        });
       }
 
       // Validate that we have a valid App ID
       if (!tokenData.appId || tokenData.appId.length !== 32) {
-        throw new Error("Invalid Agora App ID received from token endpoint");
+        throw new Error(
+          `Invalid Agora App ID received. Expected 32 characters, got ${
+            tokenData.appId?.length || 0
+          }`
+        );
       }
 
       // Create Agora client
+      console.log("AgoraVideoCall: Creating Agora client...");
       agoraClient.current = AgoraRTC.createClient({
         mode: "rtc",
         codec: "vp8",
@@ -185,6 +214,7 @@ export default function AgoraVideoCall({
 
       // Set up event handlers
       if (agoraClient.current) {
+        console.log("AgoraVideoCall: Setting up event handlers...");
         agoraClient.current.on("user-published", handleUserPublished);
         agoraClient.current.on("user-unpublished", handleUserUnpublished);
         agoraClient.current.on("user-joined", handleUserJoined);
@@ -195,23 +225,51 @@ export default function AgoraVideoCall({
         );
 
         // Join channel
+        console.log("AgoraVideoCall: Joining channel...", {
+          appId: tokenData.appId.substring(0, 8) + "...",
+          channelName,
+          hasToken: !!tokenData.token,
+          uid,
+        });
+
         await agoraClient.current.join(
           tokenData.appId,
           channelName,
-          tokenData.token || null, // Use null if token is empty
+          tokenData.token, // This can be null for testing
           uid
         );
 
+        console.log("AgoraVideoCall: Successfully joined channel");
+
         // Create and publish local tracks
+        console.log("AgoraVideoCall: Creating local tracks...");
         await createLocalTracks();
+        console.log("AgoraVideoCall: Publishing local tracks...");
         await publishLocalTracks();
 
         setConnectionStatus("connected");
         setIsCallActive(true);
+        console.log("AgoraVideoCall: Initialization complete");
       }
     } catch (error) {
-      console.error("Failed to initialize Agora client:", error);
+      console.error(
+        "AgoraVideoCall: Failed to initialize Agora client:",
+        error
+      );
       setConnectionStatus("failed");
+
+      // Provide more specific error feedback
+      let errorMessage = "Video call initialization failed. ";
+      if (error instanceof Error) {
+        if (error.message.includes("Invalid")) {
+          errorMessage += "Configuration issue: " + error.message;
+        } else if (error.message.includes("vendor key")) {
+          errorMessage += "Please check your Agora App ID configuration.";
+        } else {
+          errorMessage += error.message;
+        }
+      }
+      console.error("AgoraVideoCall: Error details:", errorMessage);
     }
   }, [channelName, uid, generateAgoraToken]);
 
@@ -258,20 +316,52 @@ export default function AgoraVideoCall({
   }, [isCallActive]);
 
   const createLocalTracks = async () => {
-    if (!AgoraRTC) return;
+    if (!AgoraRTC) {
+      console.error("AgoraVideoCall: AgoraRTC not available");
+      return;
+    }
 
     try {
+      console.log("AgoraVideoCall: Creating camera and microphone tracks...");
+
       // Create camera and microphone tracks
       localVideoTrack.current = await AgoraRTC.createCameraVideoTrack();
       localAudioTrack.current = await AgoraRTC.createMicrophoneAudioTrack();
 
+      console.log("AgoraVideoCall: Local tracks created successfully");
+
       // Play local video track
       if (localVideoRef.current && localVideoTrack.current) {
+        console.log("AgoraVideoCall: Playing local video track...");
         localVideoTrack.current.play(localVideoRef.current);
         setLocalVideoReady(true);
+        console.log("AgoraVideoCall: Local video ready");
       }
     } catch (error) {
-      console.error("Failed to create local tracks:", error);
+      console.error("AgoraVideoCall: Failed to create local tracks:", error);
+
+      // Provide specific error messages
+      if (error instanceof Error) {
+        if (
+          error.name === "NotAllowedError" ||
+          error.message.includes("Permission denied")
+        ) {
+          console.error("AgoraVideoCall: Camera/microphone permission denied");
+          // Still continue - user can join without media
+        } else if (
+          error.message.includes("NotFoundError") ||
+          error.message.includes("no camera")
+        ) {
+          console.error("AgoraVideoCall: No camera/microphone found");
+          // Still continue - user can join audio-only or view-only
+        } else {
+          console.error(
+            "AgoraVideoCall: Unexpected media error:",
+            error.message
+          );
+        }
+      }
+      // Don't throw - allow joining without local media
     }
   };
 
@@ -402,10 +492,92 @@ export default function AgoraVideoCall({
     }
   };
 
+  // Check for call end notifications from other users
+  const checkForCallEnd = useCallback(async () => {
+    try {
+      const response = await fetch(
+        `/api/agora/end-call?userId=${encodeURIComponent(userId)}`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+
+        if (
+          data.success &&
+          data.notifications &&
+          data.notifications.length > 0
+        ) {
+          console.log(
+            "📞 AgoraVideoCall: Received call end notification",
+            data.notifications
+          );
+
+          // Check if any notification is for our current session
+          const currentSession = agoraCallingService.getCurrentSession();
+          if (currentSession) {
+            const relevantNotification = data.notifications.find(
+              (notif: any) => notif.callId === currentSession.callId
+            );
+
+            if (relevantNotification) {
+              console.log("📞 AgoraVideoCall: Other user ended the call");
+              setConnectionStatus("disconnected");
+
+              // Clean up and end call
+              setTimeout(async () => {
+                await cleanupAgoraResources();
+                onCallEnd();
+              }, 2000); // Give user time to see the disconnected status
+
+              return;
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("📞 AgoraVideoCall: Error checking for call end:", error);
+    }
+  }, [userId, onCallEnd]);
+
+  // Set up polling for call end notifications
+  useEffect(() => {
+    if (!isCallActive) return;
+
+    const pollInterval = setInterval(checkForCallEnd, 3000); // Check every 3 seconds
+
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, [isCallActive, checkForCallEnd]);
+
   const endCall = async () => {
-    setIsCallActive(false);
-    await cleanupAgoraResources();
-    onCallEnd();
+    try {
+      console.log("📞 AgoraVideoCall: User ending call");
+
+      setIsCallActive(false);
+
+      // Get current session and end it via service
+      const currentSession = agoraCallingService.getCurrentSession();
+      if (currentSession) {
+        console.log(
+          "📞 AgoraVideoCall: Ending call session:",
+          currentSession.callId
+        );
+        await agoraCallingService.endCall(currentSession.callId);
+      }
+
+      // Clean up Agora resources
+      await cleanupAgoraResources();
+
+      // Notify parent component
+      onCallEnd();
+    } catch (error) {
+      console.error("📞 AgoraVideoCall: Error ending call:", error);
+
+      // Still clean up and close even if there's an error
+      await cleanupAgoraResources();
+      onCallEnd();
+    }
   };
 
   const formatDuration = (seconds: number) => {
