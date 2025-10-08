@@ -5,6 +5,7 @@ import { Search, Filter, Package } from "lucide-react";
 import { motion } from "framer-motion";
 import NavigationHeader from "@/components/NavigationHeader";
 import MedicineCard from "@/components/MedicineCard";
+import { useWishlist } from "@/contexts/WishlistContext";
 
 interface Medicine {
   id: string;
@@ -30,6 +31,8 @@ export default function MedicinesPage() {
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+
+  const { refreshWishlist } = useWishlist();
 
   const categories = [
     "Pain Relief",

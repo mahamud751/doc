@@ -1,10 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Package, AlertTriangle, Clock, Shield } from "lucide-react";
+import { Package, AlertTriangle, Clock, Shield, Heart } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useToast } from "@/context/ToastContext";
 import { Button } from "@/components/ui/Button";
+import { useWishlist } from "@/contexts/WishlistContext";
 
 interface Medicine {
   id: string;
@@ -39,12 +40,16 @@ export default function MedicineCard({
 }: MedicineCardProps) {
   const { addToCart } = useCart();
   const { addToast } = useToast();
+  const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
+
   const isLowStock = medicine.stock_quantity < 50;
   const isExpiringSoon = () => {
     const sixMonthsFromNow = new Date();
     sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
     return new Date(medicine.expiry_date) <= sixMonthsFromNow;
   };
+
+  const isInWish = isInWishlist(medicine.id, "MEDICINE");
 
   const handleAddToCart = () => {
     addToCart({
@@ -56,6 +61,14 @@ export default function MedicineCard({
     });
 
     addToast(`${medicine.name} added to cart`, "success");
+  };
+
+  const handleToggleWishlist = async () => {
+    if (isInWish) {
+      await removeFromWishlist(medicine.id, "MEDICINE", medicine.name);
+    } else {
+      await addToWishlist(medicine.id, "MEDICINE", medicine.name);
+    }
   };
 
   return (
@@ -177,6 +190,20 @@ export default function MedicineCard({
               Add to Cart
             </Button>
           </motion.div>
+
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={handleToggleWishlist}
+            className={`p-2 rounded-full ${
+              isInWish
+                ? "text-red-500 bg-red-50 hover:bg-red-100"
+                : "text-gray-400 bg-gray-100 hover:bg-gray-200"
+            }`}
+          >
+            <Heart className={`w-5 h-5 ${isInWish ? "fill-current" : ""}`} />
+          </motion.button>
+
           {showActions && (
             <div className="flex items-center space-x-2">
               {onEdit && (

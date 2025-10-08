@@ -10,8 +10,10 @@ import {
   Package as PackageIcon,
   Search,
   TestTube,
+  Heart,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useWishlist } from "@/contexts/WishlistContext";
 
 interface LabTest {
   id: string;
@@ -56,6 +58,7 @@ export default function LabItemsPage() {
   const [selectedCategory, setSelectedCategory] = useState("");
 
   const { addToCart } = useCart();
+  const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
 
   const testCategories = [
     "Blood Test",
@@ -139,178 +142,226 @@ export default function LabItemsPage() {
       (pkg) => selectedCategory === "" || pkg.category === selectedCategory
     );
 
-  const renderLabTestCard = (test: LabTest) => (
-    <motion.div
-      key={test.id}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -5, scale: 1.02 }}
-      className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/30 overflow-hidden hover:shadow-3xl transition-all duration-300"
-    >
-      <div className="p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1">
-            <div className="flex items-center space-x-2 mb-3">
-              <motion.div
-                whileHover={{ scale: 1.1 }}
-                className="p-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl"
-              >
-                <TestTube className="text-white" size={20} />
-              </motion.div>
-              <h3 className="text-xl font-bold text-gray-900">{test.name}</h3>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 border border-blue-200">
-                {test.category}
-              </span>
-              <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800 border border-gray-200">
-                {test.sample_type}
-              </span>
-            </div>
-          </div>
-        </div>
+  const handleToggleWishlist = async (
+    id: string,
+    type: "LAB_TEST" | "LAB_PACKAGE",
+    name: string
+  ) => {
+    if (isInWishlist(id, type)) {
+      await removeFromWishlist(id, type, name);
+    } else {
+      await addToWishlist(id, type, name);
+    }
+  };
 
-        <p className="text-gray-600 text-sm mb-6 leading-relaxed">
-          {test.description}
-        </p>
+  const renderLabTestCard = (test: LabTest) => {
+    const isInWish = isInWishlist(test.id, "LAB_TEST");
 
-        <div className="space-y-3 mb-6">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-500">Code:</span>
-            <span className="font-semibold text-gray-900">{test.code}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-500">Preparation:</span>
-            <span className="font-semibold text-gray-900">
-              {test.preparation_required ? "Required" : "Not Required"}
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-500">Report Delivery:</span>
-            <span className="font-semibold text-gray-900">
-              {test.reporting_time}
-            </span>
-          </div>
-        </div>
-
-        <div className="mb-6">
-          <div className="flex items-center space-x-3 mb-2">
-            <span className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-              ৳{Number(test.price).toFixed(2)}
-            </span>
-          </div>
-        </div>
-
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() =>
-            addToCart({
-              id: test.id,
-              name: test.name,
-              price: Number(test.price),
-              type: "test",
-            })
-          }
-          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 px-4 rounded-2xl shadow-lg transition-all"
-        >
-          Add to Cart
-        </motion.button>
-      </div>
-    </motion.div>
-  );
-
-  const renderLabPackageCard = (pkg: LabPackage) => (
-    <motion.div
-      key={pkg.id}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -8, scale: 1.02 }}
-      className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/30 overflow-hidden hover:shadow-3xl transition-all duration-300"
-    >
-      <div className="p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1">
-            <div className="flex items-center space-x-2 mb-3">
-              <motion.div
-                whileHover={{ scale: 1.1 }}
-                className="p-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl"
-              >
-                <FlaskConical className="text-white" size={20} />
-              </motion.div>
-              <h3 className="text-xl font-bold text-gray-900">{pkg.name}</h3>
-            </div>
-            <div className="flex items-center space-x-3 mb-4">
-              <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 border border-blue-200">
-                {pkg.category}
-              </span>
-              {pkg.price > 2000 && (
-                <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-gradient-to-r from-amber-100 to-orange-100 text-amber-800 border border-amber-200">
-                  Premium Package
+    return (
+      <motion.div
+        key={test.id}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        whileHover={{ y: -5, scale: 1.02 }}
+        className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/30 overflow-hidden hover:shadow-3xl transition-all duration-300"
+      >
+        <div className="p-6">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex-1">
+              <div className="flex items-center space-x-2 mb-3">
+                <motion.div
+                  whileHover={{ scale: 1.1 }}
+                  className="p-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl"
+                >
+                  <TestTube className="text-white" size={20} />
+                </motion.div>
+                <h3 className="text-xl font-bold text-gray-900">{test.name}</h3>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                  {test.category}
                 </span>
-              )}
-              {pkg.is_home_collection && (
-                <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 border border-green-200">
-                  Home Collection
+                <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800 border border-gray-200">
+                  {test.sample_type}
                 </span>
-              )}
+              </div>
+            </div>
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() =>
+                handleToggleWishlist(test.id, "LAB_TEST", test.name)
+              }
+              className={`p-2 rounded-full ${
+                isInWish
+                  ? "text-red-500 bg-red-50 hover:bg-red-100"
+                  : "text-gray-400 bg-gray-100 hover:bg-gray-200"
+              }`}
+            >
+              <Heart className={`w-5 h-5 ${isInWish ? "fill-current" : ""}`} />
+            </motion.button>
+          </div>
+
+          <p className="text-gray-600 text-sm mb-6 leading-relaxed">
+            {test.description}
+          </p>
+
+          <div className="space-y-3 mb-6">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-500">Code:</span>
+              <span className="font-semibold text-gray-900">{test.code}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-500">Preparation:</span>
+              <span className="font-semibold text-gray-900">
+                {test.preparation_required ? "Required" : "Not Required"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-500">Report Delivery:</span>
+              <span className="font-semibold text-gray-900">
+                {test.reporting_time}
+              </span>
             </div>
           </div>
+
+          <div className="mb-6">
+            <div className="flex items-center space-x-3 mb-2">
+              <span className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                ৳{Number(test.price).toFixed(2)}
+              </span>
+            </div>
+          </div>
+
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() =>
+              addToCart({
+                id: test.id,
+                name: test.name,
+                price: Number(test.price),
+                type: "test",
+              })
+            }
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 px-4 rounded-2xl shadow-lg transition-all"
+          >
+            Add to Cart
+          </motion.button>
         </div>
+      </motion.div>
+    );
+  };
 
-        <p className="text-gray-600 text-sm mb-6 leading-relaxed">
-          {pkg.description}
-        </p>
+  const renderLabPackageCard = (pkg: LabPackage) => {
+    const isInWish = isInWishlist(pkg.id, "LAB_PACKAGE");
 
-        <div className="space-y-3 mb-6">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-500">Tests Included:</span>
-            <span className="font-semibold text-gray-900">
-              {pkg.tests_included?.length || 0} tests
-            </span>
+    return (
+      <motion.div
+        key={pkg.id}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        whileHover={{ y: -8, scale: 1.02 }}
+        className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/30 overflow-hidden hover:shadow-3xl transition-all duration-300"
+      >
+        <div className="p-6">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex-1">
+              <div className="flex items-center space-x-2 mb-3">
+                <motion.div
+                  whileHover={{ scale: 1.1 }}
+                  className="p-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl"
+                >
+                  <FlaskConical className="text-white" size={20} />
+                </motion.div>
+                <h3 className="text-xl font-bold text-gray-900">{pkg.name}</h3>
+              </div>
+              <div className="flex items-center space-x-3 mb-4">
+                <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                  {pkg.category}
+                </span>
+                {pkg.price > 2000 && (
+                  <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-gradient-to-r from-amber-100 to-orange-100 text-amber-800 border border-amber-200">
+                    Premium Package
+                  </span>
+                )}
+                {pkg.is_home_collection && (
+                  <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 border border-green-200">
+                    Home Collection
+                  </span>
+                )}
+              </div>
+            </div>
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() =>
+                handleToggleWishlist(pkg.id, "LAB_PACKAGE", pkg.name)
+              }
+              className={`p-2 rounded-full ${
+                isInWish
+                  ? "text-red-500 bg-red-50 hover:bg-red-100"
+                  : "text-gray-400 bg-gray-100 hover:bg-gray-200"
+              }`}
+            >
+              <Heart className={`w-5 h-5 ${isInWish ? "fill-current" : ""}`} />
+            </motion.button>
           </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-500">Preparation:</span>
-            <span className="font-semibold text-gray-900">
-              {pkg.preparation_required
-                ? pkg.preparation_instructions || "Required"
-                : "Not Required"}
-            </span>
+
+          <p className="text-gray-600 text-sm mb-6 leading-relaxed">
+            {pkg.description}
+          </p>
+
+          <div className="space-y-3 mb-6">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-500">Tests Included:</span>
+              <span className="font-semibold text-gray-900">
+                {pkg.tests_included?.length || 0} tests
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-500">Preparation:</span>
+              <span className="font-semibold text-gray-900">
+                {pkg.preparation_required
+                  ? pkg.preparation_instructions || "Required"
+                  : "Not Required"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-500">Report Delivery:</span>
+              <span className="font-semibold text-gray-900">
+                {pkg.reporting_time || "24-48 hours"}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-500">Report Delivery:</span>
-            <span className="font-semibold text-gray-900">
-              {pkg.reporting_time || "24-48 hours"}
-            </span>
+
+          <div className="mb-6">
+            <div className="flex items-center space-x-3 mb-2">
+              <span className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                ৳{Number(pkg.price).toFixed(2)}
+              </span>
+            </div>
           </div>
+
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() =>
+              addToCart({
+                id: pkg.id,
+                name: pkg.name,
+                price: Number(pkg.price),
+                type: "package",
+              })
+            }
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 px-4 rounded-2xl shadow-lg transition-all"
+          >
+            Add to Cart
+          </motion.button>
         </div>
-
-        <div className="mb-6">
-          <div className="flex items-center space-x-3 mb-2">
-            <span className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-              ৳{Number(pkg.price).toFixed(2)}
-            </span>
-          </div>
-        </div>
-
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() =>
-            addToCart({
-              id: pkg.id,
-              name: pkg.name,
-              price: Number(pkg.price),
-              type: "package",
-            })
-          }
-          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 px-4 rounded-2xl shadow-lg transition-all"
-        >
-          Add to Cart
-        </motion.button>
-      </div>
-    </motion.div>
-  );
+      </motion.div>
+    );
+  };
 
   if (loading) {
     return (

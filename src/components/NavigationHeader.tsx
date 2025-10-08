@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import WishlistIcon from "@/components/WishlistIcon";
 
 interface NavigationHeaderProps {
   currentPage?: string;
@@ -130,6 +131,7 @@ export default function NavigationHeader({
             <div className="flex items-center space-x-4 ml-6">
               {isLoggedIn ? (
                 <div className="flex items-center space-x-3">
+                  {userRole === "PATIENT" && <WishlistIcon />}
                   <div className="flex items-center space-x-2">
                     <UserCircle className="h-6 w-6 text-gray-600" />
                     <span className="text-gray-700 font-medium">
@@ -151,7 +153,7 @@ export default function NavigationHeader({
                           : "/dashboard"
                       }
                     >
-                      <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-full px-6">
+                      <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-600 rounded-full px-6">
                         Dashboard
                       </Button>
                     </Link>
@@ -189,7 +191,7 @@ export default function NavigationHeader({
                     whileTap={{ scale: 0.95 }}
                   >
                     <Link href="/auth/register">
-                      <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-full px-6">
+                      <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-600 rounded-full px-6">
                         Sign Up
                       </Button>
                     </Link>

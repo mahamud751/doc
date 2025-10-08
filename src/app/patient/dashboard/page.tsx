@@ -33,6 +33,9 @@ import { useCallback, useEffect, useState } from "react";
 import IncomingCallModal from "@/components/IncomingCallModal";
 import { agoraCallingService } from "@/lib/agora-calling-service";
 import { callNotifications } from "@/lib/call-notifications";
+import PatientProfile from "@/components/patient/PatientProfile";
+import Wishlist from "@/components/patient/Wishlist";
+import { useWishlist } from "@/contexts/WishlistContext";
 
 interface PatientData {
   id: string;
@@ -803,6 +806,7 @@ export default function PatientDashboard() {
                         icon: TestTube,
                       },
                       { id: "medicines", label: "Medicines", icon: Pill },
+                      { id: "wishlist", label: "Wishlist", icon: Heart },
                       { id: "profile", label: "Profile", icon: User },
                     ].map((item) => (
                       <motion.button
@@ -1960,6 +1964,137 @@ export default function PatientDashboard() {
                     </div>
                   </motion.div>
                 </div>
+              )}
+
+              {/* Profile Tab */}
+              {activeTab === "profile" && (
+                <motion.div
+                  key="profile"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-6"
+                >
+                  <PatientProfile
+                    patientData={patientData}
+                    onUpdate={fetchDashboardData}
+                  />
+                </motion.div>
+              )}
+
+              {/* Lab Reports Tab */}
+              {activeTab === "lab-reports" && (
+                <motion.div
+                  key="lab-reports"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-6"
+                >
+                  <div className="flex items-center justify-between">
+                    <h1 className="text-4xl font-bold text-gray-900">
+                      Lab Reports
+                    </h1>
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <Link href="/lab-tests">
+                        <Button className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-full shadow-lg">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Book Lab Test
+                        </Button>
+                      </Link>
+                    </motion.div>
+                  </div>
+
+                  <Card className="bg-white/80 backdrop-blur-sm border-white/30 shadow-2xl rounded-3xl overflow-hidden">
+                    <CardContent className="p-12 text-center">
+                      <TestTube className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                        No Lab Reports Yet
+                      </h3>
+                      <p className="text-gray-600 mb-6">
+                        You haven&apos;t ordered any lab tests yet. Start by
+                        booking a test.
+                      </p>
+                      <motion.div
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        <Link href="/lab-tests">
+                          <Button className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-full">
+                            Book Lab Tests
+                          </Button>
+                        </Link>
+                      </motion.div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+
+              {/* Medicines Tab */}
+              {activeTab === "medicines" && (
+                <motion.div
+                  key="medicines"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-6"
+                >
+                  <div className="flex items-center justify-between">
+                    <h1 className="text-4xl font-bold text-gray-900">
+                      Medicines
+                    </h1>
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <Link href="/medicines">
+                        <Button className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-500 rounded-full shadow-lg">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Order Medicines
+                        </Button>
+                      </Link>
+                    </motion.div>
+                  </div>
+
+                  <Card className="bg-white/80 backdrop-blur-sm border-white/30 shadow-2xl rounded-3xl overflow-hidden">
+                    <CardContent className="p-12 text-center">
+                      <Pill className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                        No Medicine Orders Yet
+                      </h3>
+                      <p className="text-gray-600 mb-6">
+                        You haven&apos;t ordered any medicines yet. Start by
+                        ordering medicines.
+                      </p>
+                      <motion.div
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        <Link href="/medicines">
+                          <Button className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-500 rounded-full">
+                            Order Medicines
+                          </Button>
+                        </Link>
+                      </motion.div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+
+              {/* Wishlist Tab */}
+              {activeTab === "wishlist" && (
+                <motion.div
+                  key="wishlist"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-6"
+                >
+                  <Wishlist />
+                </motion.div>
               )}
             </AnimatePresence>
           </div>

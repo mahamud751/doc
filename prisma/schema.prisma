@@ -8,32 +8,33 @@ datasource db {
 }
 
 model User {
-  id                   String               @id @default(cuid())
-  email                String               @unique
-  phone                String               @unique
-  password_hash        String
-  name                 String
-  role                 UserRole
-  is_verified          Boolean              @default(false)
-  is_active            Boolean              @default(true)
-  avatar_url           String?
-  created_at           DateTime             @default(now())
-  updated_at           DateTime             @updatedAt
-  otp_code             String?
-  otp_expires_at       DateTime?
-  doctor_appointments  Appointment[]        @relation("DoctorAppointments")
-  patient_appointments Appointment[]        @relation("PatientAppointments")
-  audit_logs           AuditLog[]
-  doctor_profile       DoctorProfile?
-  lab_orders           LabOrder[]
-  sent_messages        Message[]            @relation("SentMessages")
-  received_messages    Message[]            @relation("ReceivedMessages")
-  patient_profile      PatientProfile?
-  payment_transactions PaymentTransaction[]
-  pharmacy_orders      PharmacyOrder[]
-  prescriptions_written Prescription[]      @relation("DoctorPrescriptions")
-  prescriptions_received Prescription[]     @relation("PatientPrescriptions")
-  reviews              Review[]
+  id                     String               @id @default(cuid())
+  email                  String               @unique
+  phone                  String               @unique
+  password_hash          String
+  name                   String
+  role                   UserRole
+  is_verified            Boolean              @default(false)
+  is_active              Boolean              @default(true)
+  avatar_url             String?
+  created_at             DateTime             @default(now())
+  updated_at             DateTime             @updatedAt
+  otp_code               String?
+  otp_expires_at         DateTime?
+  doctor_appointments    Appointment[]        @relation("DoctorAppointments")
+  patient_appointments   Appointment[]        @relation("PatientAppointments")
+  audit_logs             AuditLog[]
+  doctor_profile         DoctorProfile?
+  lab_orders             LabOrder[]
+  sent_messages          Message[]            @relation("SentMessages")
+  received_messages      Message[]            @relation("ReceivedMessages")
+  patient_profile        PatientProfile?
+  payment_transactions   PaymentTransaction[]
+  pharmacy_orders        PharmacyOrder[]
+  prescriptions_written  Prescription[]       @relation("DoctorPrescriptions")
+  prescriptions_received Prescription[]       @relation("PatientPrescriptions")
+  reviews                Review[]
+  wishlist               Wishlist?
 
   @@map("users")
 }
@@ -323,20 +324,20 @@ model Medicine {
 }
 
 model LabTest {
-  id                       String   @id @default(cuid())
-  name                     String   @unique
-  code                     String   @unique
+  id                       String           @id @default(cuid())
+  name                     String           @unique
+  code                     String           @unique
   description              String?
   category                 String
   price                    Decimal
   sample_type              String
-  preparation_required     Boolean  @default(false)
+  preparation_required     Boolean          @default(false)
   preparation_instructions String?
   reporting_time           String
   normal_range             String?
-  is_active                Boolean  @default(true)
-  created_at               DateTime @default(now())
-  updated_at               DateTime @updatedAt
+  is_active                Boolean          @default(true)
+  created_at               DateTime         @default(now())
+  updated_at               DateTime         @updatedAt
   lab_packages             LabPackageTest[]
   lab_orders               LabOrder[]
 
@@ -344,19 +345,19 @@ model LabTest {
 }
 
 model LabPackage {
-  id                       String   @id @default(cuid())
+  id                       String           @id @default(cuid())
   name                     String
   description              String?
   category                 String
   price                    Decimal
-  preparation_required     Boolean  @default(false)
+  preparation_required     Boolean          @default(false)
   preparation_instructions String?
   sample_type              String?
   reporting_time           String?
-  is_home_collection       Boolean  @default(false)
-  is_active                Boolean  @default(true)
-  created_at               DateTime @default(now())
-  updated_at               DateTime @updatedAt
+  is_home_collection       Boolean          @default(false)
+  is_active                Boolean          @default(true)
+  created_at               DateTime         @default(now())
+  updated_at               DateTime         @updatedAt
   lab_package_tests        LabPackageTest[]
   lab_orders               LabOrder[]
 
@@ -364,12 +365,12 @@ model LabPackage {
 }
 
 model LabPackageTest {
-  id           String   @id @default(cuid())
-  package_id   String
-  test_id      String
-  created_at   DateTime @default(now())
-  package      LabPackage @relation(fields: [package_id], references: [id], onDelete: Cascade)
-  test         LabTest    @relation(fields: [test_id], references: [id], onDelete: Cascade)
+  id         String     @id @default(cuid())
+  package_id String
+  test_id    String
+  created_at DateTime   @default(now())
+  package    LabPackage @relation(fields: [package_id], references: [id], onDelete: Cascade)
+  test       LabTest    @relation(fields: [test_id], references: [id], onDelete: Cascade)
 
   @@unique([package_id, test_id])
   @@map("lab_package_tests")
@@ -437,4 +438,26 @@ enum MeetingType {
   VIDEO
   AUDIO
   CHAT
+}
+
+model Wishlist {
+  id         String         @id @default(cuid())
+  patient_id String         @unique
+  created_at DateTime       @default(now())
+  updated_at DateTime       @updatedAt
+  patient    User           @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  items      WishlistItem[]
+
+  @@map("wishlists")
+}
+
+model WishlistItem {
+  id          String   @id @default(cuid())
+  wishlist_id String
+  item_type   String // 'MEDICINE', 'LAB_TEST', 'LAB_PACKAGE'
+  item_id     String // Reference to medicine, lab_test, or lab_package id
+  added_at    DateTime @default(now())
+  wishlist    Wishlist @relation(fields: [wishlist_id], references: [id], onDelete: Cascade)
+
+  @@map("wishlist_items")
 }

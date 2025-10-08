@@ -247,6 +247,365 @@ async function main() {
   }
 
   console.log("✅ Sample lab packages created");
+
+  // Create individual lab tests
+  const labTests = [
+    {
+      name: "Hemoglobin",
+      code: "HGB",
+      description: "Measures the amount of hemoglobin in blood",
+      category: "Hematology",
+      price: 15.0,
+      sample_type: "Blood",
+      preparation_required: false,
+      preparation_instructions: "No special preparation required",
+      reporting_time: "Same day",
+      normal_range: "12.0-15.5 g/dL (Female), 13.5-17.5 g/dL (Male)",
+    },
+    {
+      name: "Blood Glucose Fasting",
+      code: "FBS",
+      description: "Measures blood sugar levels after fasting",
+      category: "Biochemistry",
+      price: 20.0,
+      sample_type: "Blood",
+      preparation_required: true,
+      preparation_instructions: "8-12 hours fasting required",
+      reporting_time: "Same day",
+      normal_range: "70-100 mg/dL",
+    },
+    {
+      name: "Urine Routine",
+      code: "UR",
+      description: "Basic urine analysis",
+      category: "Urine Test",
+      price: 25.0,
+      sample_type: "Urine",
+      preparation_required: false,
+      preparation_instructions: "First morning urine sample preferred",
+      reporting_time: "Same day",
+      normal_range: "Normal physical and chemical properties",
+    },
+    {
+      name: "X-Ray Chest",
+      code: "CXR",
+      description: "Chest X-ray to examine lungs and heart",
+      category: "Radiology",
+      price: 50.0,
+      sample_type: "X-Ray",
+      preparation_required: false,
+      preparation_instructions: "Remove metal objects from chest area",
+      reporting_time: "1-2 hours",
+      normal_range: "Normal lung fields and cardiac silhouette",
+    },
+  ];
+
+  for (const labTest of labTests) {
+    const existingTest = await prisma.labTest.findFirst({
+      where: { name: labTest.name },
+    });
+
+    if (!existingTest) {
+      await prisma.labTest.create({
+        data: labTest,
+      });
+    }
+  }
+
+  console.log("✅ Sample lab tests created");
+
+  // Create specialties
+  const specialties = [
+    {
+      name: "Cardiology",
+      description: "Heart and cardiovascular system specialists",
+    },
+    {
+      name: "Pediatrics",
+      description: "Medical care for infants, children, and adolescents",
+    },
+    {
+      name: "Dermatology",
+      description: "Skin, hair, and nail disorders",
+    },
+    {
+      name: "Orthopedics",
+      description: "Musculoskeletal system disorders",
+    },
+    {
+      name: "Neurology",
+      description: "Nervous system disorders",
+    },
+    {
+      name: "Gynecology",
+      description: "Women's reproductive health",
+    },
+    {
+      name: "Psychiatry",
+      description: "Mental health and behavioral disorders",
+    },
+    {
+      name: "General Medicine",
+      description: "Primary healthcare and general medical conditions",
+    },
+  ];
+
+  for (const specialty of specialties) {
+    const existingSpecialty = await prisma.specialty.findFirst({
+      where: { name: specialty.name },
+    });
+
+    if (!existingSpecialty) {
+      await prisma.specialty.create({
+        data: specialty,
+      });
+    }
+  }
+
+  console.log("✅ Medical specialties created");
+
+  // Create more doctors with different specialties
+  const additionalDoctors = [
+    {
+      email: "dr.emma.davis@mediconnect.com",
+      phone: "+1234567895",
+      name: "Dr. Emma Davis",
+      license: "MD123458",
+      specialties: ["Dermatology", "Cosmetic Surgery"],
+      qualifications: [
+        "MBBS",
+        "MD Dermatology",
+        "Fellowship in Cosmetic Surgery",
+      ],
+      experience: 10,
+      fee: 180,
+      languages: ["English", "French"],
+      bio: "Experienced dermatologist specializing in skin disorders and cosmetic procedures.",
+      rating: 4.7,
+      reviews: 156,
+    },
+    {
+      email: "dr.james.rodriguez@mediconnect.com",
+      phone: "+1234567896",
+      name: "Dr. James Rodriguez",
+      license: "MD123459",
+      specialties: ["Orthopedics", "Sports Medicine"],
+      qualifications: [
+        "MBBS",
+        "MS Orthopedics",
+        "Fellowship in Sports Medicine",
+      ],
+      experience: 15,
+      fee: 200,
+      languages: ["English", "Spanish"],
+      bio: "Orthopedic surgeon with expertise in sports injuries and joint replacement.",
+      rating: 4.9,
+      reviews: 298,
+    },
+    {
+      email: "dr.priya.sharma@mediconnect.com",
+      phone: "+1234567897",
+      name: "Dr. Priya Sharma",
+      license: "MD123460",
+      specialties: ["Gynecology", "Obstetrics"],
+      qualifications: ["MBBS", "MD Gynecology", "DGO"],
+      experience: 12,
+      fee: 160,
+      languages: ["English", "Hindi"],
+      bio: "Gynecologist and obstetrician providing comprehensive women's healthcare.",
+      rating: 4.8,
+      reviews: 210,
+    },
+  ];
+
+  for (const doctorData of additionalDoctors) {
+    const doctor = await prisma.user.upsert({
+      where: { email: doctorData.email },
+      update: {},
+      create: {
+        email: doctorData.email,
+        phone: doctorData.phone,
+        password_hash: doctorPassword,
+        name: doctorData.name,
+        role: "DOCTOR",
+        is_verified: true,
+        is_active: true,
+      },
+    });
+
+    const doctorProfile = await prisma.doctorProfile.upsert({
+      where: { user_id: doctor.id },
+      update: {},
+      create: {
+        user_id: doctor.id,
+        medical_license: doctorData.license,
+        specialties: doctorData.specialties,
+        qualifications: doctorData.qualifications,
+        experience_years: doctorData.experience,
+        consultation_fee: doctorData.fee,
+        languages: doctorData.languages,
+        bio: doctorData.bio,
+        is_available_online: true,
+        rating: doctorData.rating,
+        total_reviews: doctorData.reviews,
+      },
+    });
+
+    await prisma.doctorVerification.upsert({
+      where: { doctor_id: doctorProfile.id },
+      update: {},
+      create: {
+        doctor_id: doctorProfile.id,
+        status: "APPROVED",
+        reviewed_by: admin.id,
+        reviewed_at: new Date(),
+        notes: "All documents verified successfully",
+      },
+    });
+  }
+
+  console.log("✅ Additional doctors created");
+
+  // Create more patients
+  const additionalPatients = [
+    {
+      email: "jane.smith@example.com",
+      phone: "+1234567898",
+      name: "Jane Smith",
+      dob: new Date("1985-08-22"),
+      gender: "FEMALE" as const,
+      address: "456 Oak Ave, Springfield, IL 62701",
+      emergency: "+1234567899",
+      bloodGroup: "A+",
+      allergies: ["Aspirin", "Shellfish"],
+      history: "Hypertension, managed with medication",
+    },
+    {
+      email: "robert.johnson@example.com",
+      phone: "+1234567900",
+      name: "Robert Johnson",
+      dob: new Date("1978-03-10"),
+      gender: "MALE" as const,
+      address: "789 Pine St, Chicago, IL 60601",
+      emergency: "+1234567901",
+      bloodGroup: "B-",
+      allergies: [],
+      history: "Diabetes Type 2, well controlled",
+    },
+  ];
+
+  for (const patientData of additionalPatients) {
+    const patient = await prisma.user.upsert({
+      where: { email: patientData.email },
+      update: {},
+      create: {
+        email: patientData.email,
+        phone: patientData.phone,
+        password_hash: patientPassword,
+        name: patientData.name,
+        role: "PATIENT",
+        is_verified: true,
+        is_active: true,
+      },
+    });
+
+    await prisma.patientProfile.upsert({
+      where: { user_id: patient.id },
+      update: {},
+      create: {
+        user_id: patient.id,
+        date_of_birth: patientData.dob,
+        gender: patientData.gender as any,
+        address: patientData.address,
+        emergency_contact: patientData.emergency,
+        blood_group: patientData.bloodGroup,
+        allergies: patientData.allergies,
+        medical_history: patientData.history,
+      },
+    });
+  }
+
+  console.log("✅ Additional patients created");
+
+  // Create some sample appointments
+  const doctors = await prisma.user.findMany({
+    where: { role: "DOCTOR" },
+    include: { doctor_profile: true },
+  });
+
+  const patients = await prisma.user.findMany({
+    where: { role: "PATIENT" },
+  });
+
+  if (doctors.length > 0 && patients.length > 0) {
+    const sampleAppointments = [
+      {
+        patient_id: patients[0].id,
+        doctor_id: doctors[0].id,
+        status: "COMPLETED" as const,
+        payment_status: "COMPLETED" as const,
+        scheduled_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+        started_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        ended_at: new Date(
+          Date.now() - 7 * 24 * 60 * 60 * 1000 + 30 * 60 * 1000
+        ),
+        duration_minutes: 30,
+        symptoms: "Chest pain and shortness of breath",
+        diagnosis: "Mild anxiety, recommended lifestyle changes",
+        notes: "Patient responded well to consultation. Follow-up in 2 weeks.",
+      },
+      {
+        patient_id: patients[0].id,
+        doctor_id: doctors[1].id,
+        status: "CONFIRMED" as const,
+        payment_status: "COMPLETED" as const,
+        scheduled_at: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days from now
+        symptoms: "Persistent headaches",
+      },
+    ];
+
+    for (const appointmentData of sampleAppointments) {
+      await prisma.appointment.create({
+        data: appointmentData,
+      });
+    }
+
+    console.log("✅ Sample appointments created");
+  }
+
+  // Create system configurations
+  const systemConfigs = [
+    {
+      key: "consultation_fee_min",
+      value: { amount: 50, currency: "USD" },
+      description: "Minimum consultation fee allowed",
+    },
+    {
+      key: "consultation_fee_max",
+      value: { amount: 500, currency: "USD" },
+      description: "Maximum consultation fee allowed",
+    },
+    {
+      key: "appointment_duration_default",
+      value: { minutes: 30 },
+      description: "Default appointment duration in minutes",
+    },
+    {
+      key: "platform_commission",
+      value: { percentage: 10 },
+      description: "Platform commission percentage",
+    },
+  ];
+
+  for (const config of systemConfigs) {
+    await prisma.systemConfig.upsert({
+      where: { key: config.key },
+      update: { value: config.value },
+      create: config,
+    });
+  }
+
+  console.log("✅ System configurations created");
   console.log("🎉 Database seeding completed!");
 }
 

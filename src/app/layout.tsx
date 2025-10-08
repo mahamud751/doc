@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/context/CartContext";
 import { ToastProvider } from "@/context/ToastContext";
+import { WishlistProvider } from "@/contexts/WishlistContext";
 import CartIcon from "@/components/CartIcon";
 import GlobalIncomingCallHandler from "@/components/GlobalIncomingCallHandler";
 
@@ -57,11 +58,13 @@ export default function RootLayout({
         suppressHydrationWarning={true}
       >
         <CartProvider>
-          <ToastProvider>
-            <CartIcon />
-            <GlobalIncomingCallHandler />
-            {children}
-          </ToastProvider>
+          <WishlistProvider>
+            <ToastProvider>
+              <CartIcon />
+              <GlobalIncomingCallHandler />
+              {children}
+            </ToastProvider>
+          </WishlistProvider>
         </CartProvider>
       </body>
     </html>

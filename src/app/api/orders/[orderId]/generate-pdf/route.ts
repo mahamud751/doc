@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuthToken } from "@/lib/auth-utils";
+// @ts-ignore
 import { PDFDocument, rgb } from "pdf-lib";
+// @ts-ignore
 import fontkit from "@pdf-lib/fontkit";
 
 // Use the new Next.js 15 App Router syntax
@@ -283,9 +285,11 @@ export async function GET(
     );
 
     console.log("PDF generated successfully");
-    return new NextResponse(buffer, {
-      status: 200,
-      headers,
+    return new NextResponse(Buffer.from(pdfBytes), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="lab-order-${orderId}.pdf"`,
+      },
     });
   } catch (error) {
     console.error("Error generating PDF:", error);

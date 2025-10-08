@@ -46,6 +46,9 @@ import LabTestManagement from "@/components/admin/LabTestManagement";
 // Import the new DoctorVerificationTab component
 import DoctorVerificationTab from "@/components/admin/DoctorVerificationTab";
 
+// Import the new WishlistManagement component
+import WishlistManagement from "@/components/admin/WishlistManagement";
+
 interface DashboardStats {
   totalUsers: number;
   totalDoctors: number;
@@ -217,6 +220,7 @@ function AdminDashboardContent() {
     { id: "orders", icon: ShoppingCart, label: "Orders" },
     { id: "reviews", icon: Star, label: "Reviews" },
     { id: "specialties", icon: Heart, label: "Specialties" },
+    { id: "wishlist", icon: Heart, label: "Wishlist" }, // Add this line
     { id: "analytics", icon: BarChart3, label: "Analytics" },
   ];
 
@@ -479,27 +483,25 @@ function AdminDashboardContent() {
 
                             <motion.button
                               whileHover={{ scale: 1.02 }}
-                              onClick={() => setActiveTab("appointments")}
-                              className="p-4 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl text-left"
+                              onClick={() => setActiveTab("wishlist")}
+                              className="p-4 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-xl text-left"
                             >
-                              <Calendar className="h-6 w-6 mb-2" />
-                              <p className="font-medium">Appointments</p>
+                              <Heart className="h-6 w-6 mb-2" />
+                              <p className="font-medium">Wishlist Management</p>
                               <p className="text-sm opacity-80">
-                                Schedule & manage
+                                Patient wishlists
                               </p>
                             </motion.button>
                           </div>
                         </ResponsiveCard>
                       </motion.div>
                     )}
-
                     {/* Modular Components */}
                     {activeTab === "users" && <UserManagement />}
                     {activeTab === "doctors" && <DoctorManagement />}
                     {activeTab === "doctor-verification" && (
                       <DoctorVerificationTab />
                     )}
-
                     {activeTab === "medicines" && <MedicineManagement />}
                     {activeTab === "categories" && <CategoryManagement />}
                     {activeTab === "lab-packages" && <LabPackageManagement />}
@@ -509,7 +511,8 @@ function AdminDashboardContent() {
                     {activeTab === "specialties" && <SpecialtyManagement />}
                     {activeTab === "stock-management" && <StockManagement />}
                     {activeTab === "appointments" && <AppointmentManagement />}
-
+                    {activeTab === "wishlist" && <WishlistManagement />}{" "}
+                    {/* Add this line */}
                     {/* Placeholder for other tabs */}
                     {![
                       "overview",
@@ -525,6 +528,7 @@ function AdminDashboardContent() {
                       "specialties",
                       "stock-management",
                       "appointments",
+                      "wishlist", // Add this line
                     ].includes(activeTab) && (
                       <motion.div
                         initial={{ opacity: 0, y: 20 }}
