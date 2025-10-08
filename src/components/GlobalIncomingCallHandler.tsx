@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import IncomingCallModal, {
   IncomingCallData,
 } from "@/components/IncomingCallModal";
@@ -81,74 +81,117 @@ export default function GlobalIncomingCallHandler() {
     };
   }, [isMounted]);
 
-  // 🔥 NEW: Agora-based incoming call polling (same as IncomingCallsDisplay)
-  const checkForIncomingCalls = async () => {
-    if (!userId || userRole !== "DOCTOR") {
-      return; // Only doctors receive calls globally
+  // 🔥 NEW: Agora-based incoming call polling AND call status tracking
+  const checkForIncomingCalls = useCallback(async () => {
+    if (!userId) {
+      return; // Need user ID for any polling
     }
 
     try {
-      const response = await fetch(
-        `/api/agora/notify-incoming-call?doctorId=${encodeURIComponent(userId)}`
-      );
+      // Different polling based on user role
+      if (userRole === "DOCTOR") {
+        // Doctors poll for incoming calls
+        const response = await fetch(
+          `/api/agora/notify-incoming-call?doctorId=${encodeURIComponent(
+            userId
+          )}`
+        );
 
-      if (response.ok) {
-        const data = await response.json();
+        if (response.ok) {
+          const data = await response.json();
 
-        if (data.success && data.calls && data.calls.length > 0) {
-          console.log(
-            "📞 GlobalIncomingCallHandler: Found incoming calls",
-            data.calls
-          );
+          if (data.success && data.calls && data.calls.length > 0) {
+            console.log(
+              "📞 GlobalIncomingCallHandler: Found incoming calls",
+              data.calls
+            );
 
-          // Show the first incoming call as modal
-          const call = data.calls[0];
-          const modalCall: IncomingCallData = {
-            callId: call.callId,
-            callerName: call.callerName,
-            channelName: call.channelName,
-            appointmentId: call.appointmentId,
-          };
+            // Show the first incoming call as modal
+            const call = data.calls[0];
+            const modalCall: IncomingCallData = {
+              callId: call.callId,
+              callerName: call.callerName,
+              channelName: call.channelName,
+              appointmentId: call.appointmentId,
+            };
 
-          console.log(
-            "📞 GlobalIncomingCallHandler: Showing modal for call",
-            modalCall
-          );
-          setIncomingCall(modalCall);
+            console.log(
+              "📞 GlobalIncomingCallHandler: Showing modal for call",
+              modalCall
+            );
+
+            // Only set incoming call if we don't already have one
+            setIncomingCall((prevCall) => {
+              if (prevCall && prevCall.callId === modalCall.callId) {
+                return prevCall; // Don't update if same call
+              }
+              // Also check if user is already in a video call
+              if (window.location.pathname.includes("/video-call")) {
+                console.log(
+                  "📞 GlobalIncomingCallHandler: User already in video call, ignoring new call"
+                );
+                return prevCall;
+              }
+              // Check if modal is already open to prevent duplicates
+              if (prevCall) {
+                console.log(
+                  "📞 GlobalIncomingCallHandler: Modal already open, ignoring new call"
+                );
+                return prevCall;
+              }
+              return modalCall;
+            });
+          }
+        }
+      } else if (userRole === "PATIENT") {
+        // Patients poll for call status updates (like when doctor joins)
+        const response = await fetch(
+          `/api/agora/call-status?patientId=${encodeURIComponent(userId)}`
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          // Handle call status updates for patients (could update UI or show notifications)
+          if (data.callUpdates && data.callUpdates.length > 0) {
+            console.log(
+              "📞 GlobalIncomingCallHandler: Patient call status updates",
+              data.callUpdates
+            );
+            // Could dispatch events or update global state here
+          }
         }
       }
     } catch (error) {
       console.error(
-        "📞 GlobalIncomingCallHandler: Error checking calls:",
+        "📞 GlobalIncomingCallHandler: Error checking calls/status:",
         error
       );
     }
-  };
+  }, [userId, userRole]); // Dependencies memoized
 
-  // Set up polling for incoming calls (only for doctors)
+  // Set up polling for incoming calls/status (for both doctors and patients)
   useEffect(() => {
-    if (!isMounted || !userId || userRole !== "DOCTOR" || isPolling) {
+    if (!isMounted || !userId || !userRole) {
       return;
     }
 
-    console.log(
-      "📞 GlobalIncomingCallHandler: Starting Agora polling for",
-      userRole
-    );
+    console.log("📞 GlobalIncomingCallHandler: Starting polling for", userRole);
     setIsPolling(true);
 
     // Initial check
     checkForIncomingCalls();
 
-    // Poll every 3 seconds for incoming calls
-    const pollInterval = setInterval(checkForIncomingCalls, 3000);
+    // Poll every 3 seconds - doctors for incoming calls, patients for status updates
+    const pollInterval = setInterval(() => {
+      checkForIncomingCalls();
+    }, 3000);
 
     return () => {
-      console.log("📞 GlobalIncomingCallHandler: Stopping Agora polling");
+      console.log("📞 GlobalIncomingCallHandler: Stopping polling");
       clearInterval(pollInterval);
       setIsPolling(false);
     };
-  }, [isMounted, userId, userRole, isPolling]);
+  }, [isMounted, userId, userRole, checkForIncomingCalls]); // Added checkForIncomingCalls to dependencies
 
   // Handle modal close
   const handleModalClose = async () => {
@@ -207,8 +250,10 @@ export default function GlobalIncomingCallHandler() {
         >
           {incomingCall
             ? `📞 INCOMING: ${incomingCall.callerName}`
-            : isPolling
-            ? `✅ Agora Global: ${userName} (${userRole})`
+            : isPolling && userRole === "DOCTOR"
+            ? `✅ Agora Global: ${userName} (${userRole}) - Listening`
+            : isPolling && userRole === "PATIENT"
+            ? `✅ Agora Global: ${userName} (${userRole}) - Monitoring`
             : `⚠️ Agora Global: ${userName} (${userRole}) - Not Polling`}
         </div>
       )}

@@ -1,768 +1,493 @@
 "use client";
 
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  Suspense,
-} from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { PhoneOff, Mic, MicOff, Video, VideoOff } from "lucide-react";
+import { Mic, MicOff, PhoneOff, Video, VideoOff } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, Suspense } from "react";
 
-// Create a separate component for the video call content
+// Agora types
+interface AgoraClient {
+  on: (event: string, handler: (...args: unknown[]) => void) => void;
+  off: (event: string, handler: (...args: unknown[]) => void) => void;
+  subscribe: (user: unknown, mediaType: string) => Promise<void>;
+  leave: () => Promise<void>;
+  join: (
+    appId: string,
+    channelName: string,
+    token: string | null,
+    uid: number
+  ) => Promise<void>;
+  publish: (tracks: unknown[]) => Promise<void>;
+}
+
+interface AgoraTrack {
+  close: () => void;
+  setMuted: (muted: boolean) => void;
+  play?: (element: HTMLDivElement) => void;
+}
+
+interface RemoteUser {
+  uid: string;
+  videoTrack?: unknown;
+  audioTrack?: unknown;
+}
+
 function DoctorVideoCallContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Get parameters from URL - this is the correct way to pass data to client components
   const channelName = searchParams.get("channel") || "";
   const token = searchParams.get("token") || "";
   const uid = searchParams.get("uid") || "";
-  const appId = searchParams.get("appId") || ""; // App ID should come from URL params, not env vars
+  const appId = searchParams.get("appId") || "";
 
-  // Log all parameters for debugging
-  useEffect(() => {
-    console.log("Video call parameters:", { channelName, token, uid, appId });
-    console.log("App ID length:", appId.length);
-  }, [channelName, token, uid, appId]);
-
+  // States
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
-  const [remoteUsers, setRemoteUsers] = useState<unknown[]>([]);
-  const [initializing, setInitializing] = useState(false);
+  const [remoteUsers, setRemoteUsers] = useState<RemoteUser[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [callStatus, setCallStatus] = useState<
+    "waiting" | "connecting" | "connected"
+  >("waiting");
 
+  // Refs
   const localVideoRef = useRef<HTMLDivElement>(null);
   const remoteVideoRef = useRef<HTMLDivElement>(null);
-
-  type AgoraClient = {
-    on: (event: string, handler: (...args: unknown[]) => void) => void;
-    subscribe: (user: unknown, mediaType: string) => Promise<void>;
-    leave: () => Promise<void>;
-    join: (
-      appId: string,
-      channelName: string,
-      token: string | null,
-      uid: number
-    ) => Promise<void>;
-    publish: (tracks: unknown[]) => Promise<void>;
-    createClient: (config: unknown) => unknown;
-  };
-
-  type AgoraTrack = {
-    close: () => void;
-    setMuted: (muted: boolean) => void;
-    play?: (element: HTMLDivElement) => void;
-  };
-
   const clientRef = useRef<AgoraClient | null>(null);
   const localAudioTrackRef = useRef<AgoraTrack | null>(null);
   const localVideoTrackRef = useRef<AgoraTrack | null>(null);
   const isMountedRef = useRef(true);
-  const cancelTokenRef = useRef<{ cancelled: boolean }>({ cancelled: false });
 
-  // Dynamically import AgoraRTC only on the client side
   const [AgoraRTC, setAgoraRTC] = useState<{
     createClient: (config: unknown) => unknown;
     createMicrophoneAudioTrack: () => Promise<unknown>;
     createCameraVideoTrack: () => Promise<unknown>;
   } | null>(null);
 
-  useEffect(() => {
-    // Set isMounted ref to true
-    isMountedRef.current = true;
-    cancelTokenRef.current = { cancelled: false };
+  // Cleanup function
+  const cleanup = async () => {
+    try {
+      if (localAudioTrackRef.current) {
+        localAudioTrackRef.current.close();
+        localAudioTrackRef.current = null;
+      }
+      if (localVideoTrackRef.current) {
+        localVideoTrackRef.current.close();
+        localVideoTrackRef.current = null;
+      }
+      if (clientRef.current) {
+        await clientRef.current.leave();
+        clientRef.current = null;
+      }
+      if (isMountedRef.current) {
+        setIsConnected(false);
+        setRemoteUsers([]);
+      }
+    } catch (error) {
+      console.error("❌ DOCTOR: Cleanup error:", error);
+    }
+  };
 
-    // Load AgoraRTC only on client side
+  // Initialize Agora
+  const initializeAgora = async () => {
+    if (!AgoraRTC || !channelName || !uid || !appId) return;
+
+    try {
+      setCallStatus("connecting");
+
+      // Create client
+      clientRef.current = AgoraRTC.createClient({
+        mode: "rtc",
+        codec: "vp8",
+        role: "host",
+      }) as AgoraClient;
+
+      // Set up event listeners
+      console.log("🔗 DOCTOR: Setting up event listeners for remote video...");
+      clientRef.current.on("user-published", async (...args: unknown[]) => {
+        const user = args[0] as any;
+        const mediaType = args[1] as "audio" | "video";
+        console.log("🎉 DOCTOR: Patient published", mediaType);
+
+        try {
+          await clientRef.current!.subscribe(user, mediaType);
+
+          if (
+            mediaType === "video" &&
+            user.videoTrack &&
+            remoteVideoRef.current
+          ) {
+            user.videoTrack.play(remoteVideoRef.current);
+            setIsConnected(true);
+            setCallStatus("connected");
+            console.log(
+              "✅ DOCTOR: PATIENT VIDEO CONNECTED! Both cameras should now be visible."
+            );
+          }
+
+          if (mediaType === "audio" && user.audioTrack) {
+            user.audioTrack.play();
+          }
+
+          setRemoteUsers((prev) => {
+            const exists = prev.find((u) => u.uid === user.uid);
+            return exists ? prev : [...prev, user];
+          });
+        } catch (error) {
+          console.error("❌ DOCTOR: Subscribe error:", error);
+        }
+      });
+
+      clientRef.current.on("user-unpublished", (...args: unknown[]) => {
+        const user = args[0] as any;
+        setRemoteUsers((prev) => prev.filter((u) => u.uid !== user.uid));
+        if (remoteUsers.length <= 1) {
+          setIsConnected(false);
+          setCallStatus("waiting");
+        }
+      });
+
+      // Create local tracks
+      console.log("📹 DOCTOR: Creating local camera and microphone tracks...");
+      const [audioTrack, videoTrack] = await Promise.all([
+        AgoraRTC.createMicrophoneAudioTrack(),
+        AgoraRTC.createCameraVideoTrack(),
+      ]);
+      console.log("✅ DOCTOR: Local tracks created successfully");
+
+      localAudioTrackRef.current = audioTrack as AgoraTrack;
+      localVideoTrackRef.current = videoTrack as AgoraTrack;
+
+      // Play local video IMMEDIATELY - don't wait for remote connection
+      if (localVideoTrackRef.current?.play && localVideoRef.current) {
+        localVideoTrackRef.current.play(localVideoRef.current);
+        console.log("✅ DOCTOR: Local camera started - should be visible now!");
+      }
+
+      // Join channel
+      await clientRef.current.join(
+        appId,
+        channelName,
+        token || null,
+        Number(uid)
+      );
+      console.log("✅ DOCTOR: Joined channel");
+
+      // Publish tracks
+      await clientRef.current.publish([
+        localAudioTrackRef.current,
+        localVideoTrackRef.current,
+      ]);
+      console.log("✅ DOCTOR: Published tracks, ready for patient");
+
+      // Notify joining
+      await fetch("/api/agora/channel-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channel: channelName,
+          uid: Number(uid),
+          role: "DOCTOR",
+          action: "join",
+        }),
+      });
+
+      setCallStatus("waiting");
+    } catch (error) {
+      console.error("❌ DOCTOR: Initialize error:", error);
+      setError("Failed to connect to video call");
+      setCallStatus("waiting");
+    }
+  };
+
+  // Load Agora SDK
+  useEffect(() => {
+    isMountedRef.current = true;
+
     if (typeof window !== "undefined") {
       import("agora-rtc-sdk-ng")
         .then((agora) => {
-          if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
-            setAgoraRTC(
-              agora.default as {
-                createClient: (config: unknown) => unknown;
-                createMicrophoneAudioTrack: () => Promise<unknown>;
-                createCameraVideoTrack: () => Promise<unknown>;
-              }
-            );
+          if (isMountedRef.current) {
+            setAgoraRTC(agora.default as any);
           }
         })
-        .catch((err: unknown) => {
-          console.error("Failed to load AgoraRTC:", err);
-          if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
-            setError(
-              "Failed to load video call library. Please refresh the page."
-            );
-          }
+        .catch((err) => {
+          console.error("❌ Failed to load Agora SDK:", err);
+          setError("Failed to load video call library");
         });
     }
 
-    // Cleanup function
     return () => {
       isMountedRef.current = false;
-      cancelTokenRef.current.cancelled = true;
       cleanup();
     };
   }, []);
 
-  const initializeAgora = useCallback(async () => {
-    // Prevent multiple initializations
-    if (
-      initializing ||
-      !isMountedRef.current ||
-      cancelTokenRef.current.cancelled
-    ) {
-      return;
-    }
-
-    setInitializing(true);
-    setError(null);
-
-    try {
-      if (
-        !AgoraRTC ||
-        !isMountedRef.current ||
-        cancelTokenRef.current.cancelled
-      ) {
-        return;
-      }
-
-      console.log("Initializing Agora with params:", {
-        appId: appId.substring(0, 8) + "...",
-        channelName,
-        uid,
-      });
-
-      // Validate App ID one more time before use
-      if (!appId || appId.length !== 32) {
-        throw new Error(
-          `Invalid App ID: ${appId} (length: ${appId?.length || 0})`
-        );
-      }
-
-      // Additional validation - check if App ID is valid hex
-      const hexRegex = /^[0-9a-fA-F]+$/;
-      if (!hexRegex.test(appId)) {
-        throw new Error("App ID contains invalid characters");
-      }
-
-      // Create Agora client
-      if (!clientRef.current && AgoraRTC) {
-        clientRef.current = AgoraRTC.createClient({
-          mode: "rtc",
-          codec: "vp8",
-          role: "host",
-        }) as AgoraClient;
-        console.log("🔧 DOCTOR: Agora client created");
-      }
-
-      // CRITICAL FIX: Set up event listeners BEFORE joining channel
-      const handleUserPublished = async (
-        user: { uid: string; videoTrack?: unknown; audioTrack?: unknown },
-        mediaType: "audio" | "video"
-      ) => {
-        if (!isMountedRef.current || cancelTokenRef.current.cancelled) return;
-
-        console.log("🎉 DOCTOR: USER PUBLISHED EVENT:", {
-          userUid: user.uid,
-          mediaType,
-          myUid: uid,
-          channelName,
-          hasVideoTrack: !!user.videoTrack,
-          hasAudioTrack: !!user.audioTrack,
-        });
-
-        try {
-          if (clientRef.current) {
-            console.log(
-              "📺 DOCTOR: Subscribing to user:",
-              user.uid,
-              "for",
-              mediaType
-            );
-            await clientRef.current.subscribe(user, mediaType);
-            console.log(
-              "✅ DOCTOR: Successfully subscribed to user:",
-              user.uid,
-              "for",
-              mediaType
-            );
-          }
-
-          if (mediaType === "video") {
-            const remoteVideoTrack = user.videoTrack;
-            if (remoteVideoTrack && remoteVideoRef.current) {
-              console.log(
-                "🎥 DOCTOR: Playing remote video track for user:",
-                user.uid
-              );
-              (
-                remoteVideoTrack as { play: (element: HTMLDivElement) => void }
-              ).play(remoteVideoRef.current);
-              console.log("✅ DOCTOR: Remote video track playing");
-            }
-          }
-
-          if (mediaType === "audio") {
-            const remoteAudioTrack = user.audioTrack;
-            if (remoteAudioTrack) {
-              console.log(
-                "🔊 DOCTOR: Playing remote audio track for user:",
-                user.uid
-              );
-              (remoteAudioTrack as { play: () => void }).play();
-              console.log("✅ DOCTOR: Remote audio track playing");
-            }
-          }
-
-          if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
-            setRemoteUsers((prev) => {
-              const exists = prev.find(
-                (u) => (u as { uid: string }).uid === user.uid
-              );
-              if (exists) {
-                console.log(
-                  "👤 DOCTOR: User already in remote users list:",
-                  user.uid
-                );
-                return prev;
-              }
-              console.log(
-                "➕ DOCTOR: Adding user to remote users list:",
-                user.uid
-              );
-              return [...prev, user];
-            });
-
-            setIsConnected(true);
-            console.log(
-              "✅ DOCTOR: Connection established with user:",
-              user.uid
-            );
-          }
-        } catch (error) {
-          if (
-            !(
-              error instanceof Error &&
-              error.name === "AgoraRTCError" &&
-              error.message.includes("OPERATION_ABORTED")
-            )
-          ) {
-            console.error("❌ DOCTOR: Error handling user-published:", error);
-          }
-        }
-      };
-
-      const handleUserUnpublished = (user: { uid: string }) => {
-        if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
-          setRemoteUsers((prev) =>
-            prev.filter((u) => (u as { uid: string }).uid !== user.uid)
-          );
-        }
-      };
-
-      const handleUserLeft = (user: { uid: string }) => {
-        if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
-          setRemoteUsers((prev) =>
-            prev.filter((u) => (u as { uid: string }).uid !== user.uid)
-          );
-        }
-      };
-
-      // Set up event listeners BEFORE joining
-      if (clientRef.current) {
-        console.log("📡 DOCTOR: Setting up event listeners BEFORE joining...");
-        clientRef.current.on(
-          "user-published",
-          handleUserPublished as (...args: unknown[]) => void
-        );
-        clientRef.current.on(
-          "user-unpublished",
-          handleUserUnpublished as (...args: unknown[]) => void
-        );
-        clientRef.current.on(
-          "user-left",
-          handleUserLeft as (...args: unknown[]) => void
-        );
-        console.log("✅ DOCTOR: Event listeners registered successfully");
-      }
-
-      // Create local tracks BEFORE joining
-      console.log("🎥 DOCTOR: Creating local tracks...");
-      if (AgoraRTC) {
-        const [audioTrack, videoTrack] = await Promise.all([
-          (
-            AgoraRTC as { createMicrophoneAudioTrack: () => Promise<unknown> }
-          ).createMicrophoneAudioTrack(),
-          (
-            AgoraRTC as { createCameraVideoTrack: () => Promise<unknown> }
-          ).createCameraVideoTrack(),
-        ]);
-
-        if (!cancelTokenRef.current.cancelled) {
-          localAudioTrackRef.current = audioTrack as AgoraTrack;
-          localVideoTrackRef.current = videoTrack as AgoraTrack;
-          console.log("✅ DOCTOR: Local tracks created successfully");
-        }
-      }
-
-      // Play local video
-      if (
-        localVideoTrackRef.current &&
-        localVideoRef.current &&
-        isMountedRef.current &&
-        !cancelTokenRef.current.cancelled
-      ) {
-        if (localVideoTrackRef.current.play) {
-          localVideoTrackRef.current.play(localVideoRef.current);
-          console.log("✅ DOCTOR: Local video playing");
-        }
-      }
-
-      // Join the channel
-      console.log("🚪 DOCTOR: Joining channel...");
-      if (!isMountedRef.current || cancelTokenRef.current.cancelled) return;
-
-      const uidNumber = Number(uid);
-      if (isNaN(uidNumber)) {
-        throw new Error("Invalid user ID format");
-      }
-
-      // Join with token
-      if (clientRef.current) {
-        await clientRef.current.join(
-          appId,
-          channelName,
-          token || null,
-          uidNumber
-        );
-        console.log("✅ DOCTOR: Successfully joined channel", {
-          channel: channelName,
-          uid: uidNumber,
-          message: "Now waiting for patient tracks or will publish first...",
-          listenersActive: "user-published event listener is active",
-        });
-      }
-
-      // Publish local tracks AFTER joining
-      if (
-        isMountedRef.current &&
-        clientRef.current &&
-        !cancelTokenRef.current.cancelled &&
-        localAudioTrackRef.current &&
-        localVideoTrackRef.current
-      ) {
-        console.log("📤 DOCTOR: Publishing local tracks...", {
-          channel: channelName,
-          uid: uidNumber,
-          hasAudio: !!localAudioTrackRef.current,
-          hasVideo: !!localVideoTrackRef.current,
-          message: "This should trigger user-published event for patient",
-        });
-        await clientRef.current.publish(
-          [localAudioTrackRef.current, localVideoTrackRef.current].filter(
-            Boolean
-          ) as unknown[]
-        );
-        console.log("✅ DOCTOR: Local tracks published successfully", {
-          channel: channelName,
-          uid: uidNumber,
-          message: "Patient should now receive user-published event!",
-        });
-      }
-
-      if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
-        setIsConnected(true);
-      }
-    } catch (error: unknown) {
-      if (
-        error instanceof Error &&
-        error.name === "AgoraRTCError" &&
-        error.message.includes("OPERATION_ABORTED")
-      ) {
-        return;
-      }
-
-      console.error("❌ DOCTOR: Error initializing Agora:", error);
-
-      if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error";
-        setError(`Failed to initialize video call: ${errorMessage}`);
-      }
-    } finally {
-      if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
-        setInitializing(false);
-      }
-    }
-  }, [AgoraRTC, appId, channelName, token, uid, initializing]);
-
+  // Initialize when SDK is ready
   useEffect(() => {
-    // Validate required parameters
-    if (!channelName || !uid || !appId) {
-      console.error("Missing required parameters:", {
-        channelName,
-        uid,
-        appId,
-      });
-      if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
-        setError(
-          "Missing required video call parameters. Redirecting to dashboard..."
+    if (AgoraRTC && channelName && uid && appId) {
+      // Add small delay to ensure DOM is ready
+      const initTimer = setTimeout(() => {
+        initializeAgora();
+      }, 500);
+
+      return () => clearTimeout(initTimer);
+    }
+  }, [AgoraRTC, channelName, uid, appId]);
+
+  // 🔥 PROGRESSIVE CONNECTION STATUS: Poll for patient presence
+  useEffect(() => {
+    if (!channelName || isConnected) return;
+
+    let pollInterval: NodeJS.Timeout;
+
+    const checkPatientPresence = async () => {
+      try {
+        const response = await fetch(
+          `/api/agora/channel-status?channel=${encodeURIComponent(channelName)}`
         );
-        setTimeout(() => {
-          if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
-            router.push("/doctor/dashboard");
+        if (response.ok) {
+          const data = await response.json();
+          const patientPresent = data.participants?.some(
+            (p: any) => p.role === "PATIENT"
+          );
+          const doctorPresent = data.participants?.some(
+            (p: any) => p.role === "DOCTOR"
+          );
+
+          if (patientPresent && doctorPresent && !isConnected) {
+            console.log(
+              "🔥 DOCTOR: Both patient and doctor in channel - should connect soon!"
+            );
+            setCallStatus("connecting"); // Patient connecting video
+          } else if (patientPresent) {
+            console.log(
+              "✅ DOCTOR: Patient joined channel - waiting for video connection"
+            );
+            setCallStatus("connecting");
+          } else {
+            setCallStatus("waiting"); // Still waiting for patient
           }
-        }, 3000);
+        }
+      } catch (error) {
+        console.log("Error checking patient presence:", error);
       }
-      return;
-    }
+    };
 
-    // Validate App ID format
-    if (appId.length !== 32) {
-      console.error("Invalid App ID length:", appId.length);
-      if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
-        setError(
-          `Invalid App ID format. Expected 32 characters, got ${appId.length}. For debugging, visit: /agora-debug`
-        );
-        return;
-      }
-    }
-
-    // Check if App ID contains only valid characters
-    const hexRegex = /^[0-9a-fA-F]+$/;
-    if (!hexRegex.test(appId)) {
-      console.error("Invalid App ID characters");
-      if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
-        setError(
-          "Invalid App ID format. App ID should only contain hexadecimal characters. For debugging, visit: /agora-debug"
-        );
-        return;
-      }
-    }
-
-    if (
-      AgoraRTC &&
-      !initializing &&
-      isMountedRef.current &&
-      !cancelTokenRef.current.cancelled
-    ) {
-      initializeAgora();
-    }
+    // Check every 2 seconds
+    pollInterval = setInterval(checkPatientPresence, 2000);
+    checkPatientPresence(); // Check immediately
 
     return () => {
-      cancelTokenRef.current.cancelled = true;
-      cleanup();
+      clearInterval(pollInterval);
     };
-  }, [
-    AgoraRTC,
-    channelName,
-    token,
-    uid,
-    appId,
-    initializing,
-    router,
-    initializeAgora,
-  ]);
+  }, [channelName, isConnected]);
 
-  const cleanup = async () => {
-    try {
-      // Close local tracks
-      if (localAudioTrackRef.current) {
-        try {
-          localAudioTrackRef.current.close();
-        } catch (e) {
-          // Ignore errors during cleanup
-        }
-        localAudioTrackRef.current = null;
-      }
-
-      if (localVideoTrackRef.current) {
-        try {
-          localVideoTrackRef.current.close();
-        } catch (e) {
-          // Ignore errors during cleanup
-        }
-        localVideoTrackRef.current = null;
-      }
-
-      // Leave channel
-      if (clientRef.current) {
-        try {
-          await clientRef.current.leave();
-        } catch (error) {
-          // Ignore cancellation errors during cleanup
-          if (
-            !(
-              error instanceof Error &&
-              error.name === "AgoraRTCError" &&
-              error.message.includes("OPERATION_ABORTED")
-            )
-          ) {
-            console.log("Error leaving channel:", error);
-          }
-        }
-        clientRef.current = null;
-      }
-
-      if (isMountedRef.current) {
-        setIsConnected(false);
-      }
-    } catch (error) {
-      console.error("Error during cleanup:", error);
-    }
-  };
-
-  const leaveChannel = async () => {
-    try {
-      await cleanup();
-      if (isMountedRef.current && !cancelTokenRef.current.cancelled) {
-        router.push("/doctor/dashboard");
-      }
-    } catch (error) {
-      console.error("Error leaving channel:", error);
-    }
-  };
-
+  // Control functions with real functionality
   const toggleMute = () => {
     if (localAudioTrackRef.current) {
-      if (isMuted) {
-        localAudioTrackRef.current.setMuted(false);
-      } else {
-        localAudioTrackRef.current.setMuted(true);
-      }
-      setIsMuted(!isMuted);
+      const newMuted = !isMuted;
+      localAudioTrackRef.current.setMuted(newMuted);
+      setIsMuted(newMuted);
+      console.log(`🔊 DOCTOR: Audio ${newMuted ? "muted" : "unmuted"}`);
     }
   };
 
   const toggleVideo = () => {
     if (localVideoTrackRef.current) {
-      if (isVideoOff) {
-        localVideoTrackRef.current.setMuted(false);
-      } else {
-        localVideoTrackRef.current.setMuted(true);
-      }
-      setIsVideoOff(!isVideoOff);
+      const newVideoOff = !isVideoOff;
+      localVideoTrackRef.current.setMuted(newVideoOff);
+      setIsVideoOff(newVideoOff);
+      console.log(`📹 DOCTOR: Video ${newVideoOff ? "disabled" : "enabled"}`);
     }
   };
 
-  // Show error state
+  const hangUp = async () => {
+    try {
+      // Notify leaving
+      await fetch("/api/agora/channel-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channel: channelName,
+          uid: Number(uid),
+          role: "DOCTOR",
+          action: "leave",
+        }),
+      });
+
+      await cleanup();
+      router.push("/doctor/dashboard");
+    } catch (error) {
+      console.error("❌ Hang up error:", error);
+      router.push("/doctor/dashboard");
+    }
+  };
+
+  // Error state
   if (error) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-center text-white max-w-2xl p-8">
+        <div className="text-center text-white max-w-md p-8">
           <h1 className="text-2xl font-bold mb-4 text-red-400">
             Video Call Error
           </h1>
-          <p className="mb-6 text-lg">{error}</p>
-
-          {error.includes("vendor key") && (
-            <div className="mb-6 p-4 bg-yellow-900 rounded-lg">
-              <h2 className="font-bold mb-2">Recommended Solution:</h2>
-              <p className="mb-3">
-                Your App ID format is correct, but Agora&apos;s servers
-                aren&apos;t recognizing it. This typically happens when:
-              </p>
-              <ul className="text-left list-disc pl-5 mb-3 space-y-1">
-                <li>The Agora project is not properly configured</li>
-                <li>The project has been suspended or deactivated</li>
-                <li>The App ID belongs to a different Agora account</li>
-                <li>The App ID has been revoked or is invalid</li>
-                <li>
-                  You&apos;re using a static key with a dynamic token
-                  (CAN_NOT_GET_GATEWAY_SERVER)
-                </li>
-              </ul>
-              <p>
-                <strong>Solution:</strong> You&apos;re using a static key with a
-                dynamic token (CAN_NOT_GET_GATEWAY_SERVER). This is a common
-                configuration issue. Try these steps:
-              </p>
-            </div>
-          )}
-
-          {(error.includes("token") || error.includes("Token")) && (
-            <div className="mb-6 p-4 bg-yellow-900 rounded-lg">
-              <h2 className="font-bold mb-2">Token Issue:</h2>
-              <p className="mb-3">
-                The video call token appears to be invalid or expired. This can
-                happen when:
-              </p>
-              <ul className="text-left list-disc pl-5 mb-3 space-y-1">
-                <li>The token has expired (tokens are valid for 1 hour)</li>
-                <li>There was a network issue during token generation</li>
-                <li>The App ID or channel name has changed</li>
-                <li>
-                  There&apos;s a temporary issue with Agora&apos;s servers
-                </li>
-              </ul>
-              <p>
-                <strong>Solution:</strong> Return to your dashboard and try
-                joining the call again. This will generate a fresh token. If the
-                problem persists, try refreshing the page or check your internet
-                connection.
-              </p>
-            </div>
-          )}
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              onClick={() => router.push("/doctor/dashboard")}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              Return to Dashboard
-            </Button>
-
-            {error.includes("vendor key") && (
-              <Button
-                onClick={() => router.push("/agora-debug")}
-                className="bg-yellow-600 hover:bg-yellow-700"
-              >
-                Run Debug Tool
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show parameter validation state
-  if (!channelName || !uid || !appId) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-center text-white">
-          <h1 className="text-2xl font-bold mb-4">
-            Invalid Video Call Parameters
-          </h1>
-          <p className="mb-6">
-            Missing required information to join the video call.
-          </p>
-          <p className="mb-6 text-gray-300">Redirecting to dashboard...</p>
-          <Button
-            onClick={() => router.push("/doctor/dashboard")}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            Return to Dashboard Now
+          <p className="mb-6">{error}</p>
+          <Button onClick={() => router.push("/doctor/dashboard")}>
+            Return to Dashboard
           </Button>
         </div>
       </div>
     );
   }
 
-  // Show loading state while AgoraRTC is loading
-  if (!AgoraRTC) {
+  if (!channelName || !uid || !appId) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center text-white">
-          <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p>Loading video call...</p>
+          <h1 className="text-2xl font-bold mb-4">Invalid Call Parameters</h1>
+          <Button onClick={() => router.push("/doctor/dashboard")}>
+            Return to Dashboard
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900">
-      {/* Video Container */}
-      <div className="relative h-screen">
-        {/* Remote Video */}
-        <div ref={remoteVideoRef} className="w-full h-full bg-black">
-          {remoteUsers.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center text-white">
-                <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p>Waiting for patient to join...</p>
-              </div>
+    <div className="min-h-screen bg-gray-900 relative">
+      {/* Remote Video (Patient) */}
+      <div className="w-full h-screen bg-black relative">
+        {!isConnected || !remoteUsers.length ? (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center text-white">
+              <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              {callStatus === "waiting" && (
+                <>
+                  <p className="text-lg">👨‍⚕️ Waiting for patient...</p>
+                  <p className="text-sm text-gray-300 mt-2">
+                    Ready to accept call
+                  </p>
+                </>
+              )}
+              {callStatus === "connecting" && (
+                <>
+                  <p className="text-lg">🔗 Patient connecting video...</p>
+                  <p className="text-sm text-gray-300 mt-2">
+                    Establishing video connection
+                  </p>
+                </>
+              )}
             </div>
-          )}
-        </div>
-
-        {/* Local Video */}
-        <div
-          ref={localVideoRef}
-          className="absolute top-4 right-4 w-1/4 h-1/4 bg-gray-800 rounded-lg border-2 border-white"
-        ></div>
-
-        {/* Call Info */}
-        <div className="absolute top-4 left-4 text-white">
-          <h1 className="text-xl font-bold">Doctor Consultation</h1>
-          <p className="text-sm opacity-75">Channel: {channelName}</p>
-        </div>
-
-        {/* Controls */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-4">
-          <Button
-            onClick={toggleMute}
-            className={`p-4 rounded-full ${
-              isMuted
-                ? "bg-red-500 hover:bg-red-600"
-                : "bg-gray-700 hover:bg-gray-600"
-            }`}
-          >
-            {isMuted ? (
-              <MicOff className="h-6 w-6" />
-            ) : (
-              <Mic className="h-6 w-6" />
-            )}
-          </Button>
-
-          <Button
-            onClick={leaveChannel}
-            className="p-4 rounded-full bg-red-500 hover:bg-red-600"
-          >
-            <PhoneOff className="h-6 w-6" />
-          </Button>
-
-          <Button
-            onClick={toggleVideo}
-            className={`p-4 rounded-full ${
-              isVideoOff
-                ? "bg-red-500 hover:bg-red-600"
-                : "bg-gray-700 hover:bg-gray-600"
-            }`}
-          >
-            {isVideoOff ? (
-              <VideoOff className="h-6 w-6" />
-            ) : (
-              <Video className="h-6 w-6" />
-            )}
-          </Button>
-        </div>
-
-        {/* Connection Status */}
-        <div className="absolute top-4 right-4">
-          <div
-            className={`px-3 py-1 rounded-full text-sm font-semibold ${
-              isConnected
-                ? "bg-green-500 text-white"
-                : "bg-yellow-500 text-gray-900"
-            }`}
-          >
-            {isConnected ? "Connected" : "Connecting..."}
           </div>
+        ) : (
+          <>
+            {/* Patient's video (remote) */}
+            <div ref={remoteVideoRef} className="w-full h-full" />
+            {/* Patient label overlay */}
+            <div className="absolute top-4 left-4 bg-green-500 text-white px-3 py-2 rounded-lg text-base font-semibold shadow-lg">
+              🤒 Patient
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Local Video (Doctor) - Always visible like Messenger */}
+      <div className="absolute top-4 right-4 w-2/5 h-2/5 bg-gray-800 rounded-lg border-4 border-blue-500 overflow-hidden shadow-2xl z-10">
+        {!isVideoOff ? (
+          <>
+            <div ref={localVideoRef} className="w-full h-full" />
+            <div className="absolute bottom-2 left-2 bg-blue-500 text-white px-3 py-2 rounded text-sm font-bold shadow-lg">
+              👨‍⚕️ You (Doctor)
+            </div>
+          </>
+        ) : (
+          <div className="w-full h-full bg-gray-600 flex flex-col items-center justify-center">
+            <VideoOff className="h-16 w-16 text-white mb-3" />
+            <span className="text-white text-base font-semibold">
+              Camera Off
+            </span>
+            <div className="absolute bottom-2 left-2 bg-blue-500 text-white px-3 py-2 rounded text-sm font-bold shadow-lg">
+              👨‍⚕️ You (Doctor)
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Status */}
+      <div className="absolute top-4 left-1/2 transform -translate-x-1/2">
+        <div
+          className={`px-4 py-2 rounded-full text-sm font-semibold ${
+            isConnected
+              ? "bg-green-500 text-white"
+              : callStatus === "connecting"
+              ? "bg-blue-500 text-white"
+              : "bg-yellow-500 text-gray-900"
+          }`}
+        >
+          {isConnected
+            ? "🎥 Connected with Patient"
+            : callStatus === "connecting"
+            ? "🔗 Patient Joining..."
+            : "👨‍⚕️ Ready for Call"}
         </div>
+      </div>
+
+      {/* Controls */}
+      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-4">
+        <Button
+          onClick={toggleMute}
+          className={`p-4 rounded-full transition-all ${
+            isMuted
+              ? "bg-red-500 hover:bg-red-600"
+              : "bg-gray-700 hover:bg-gray-600"
+          }`}
+        >
+          {isMuted ? (
+            <MicOff className="h-6 w-6" />
+          ) : (
+            <Mic className="h-6 w-6" />
+          )}
+        </Button>
+
+        <Button
+          onClick={hangUp}
+          className="p-4 rounded-full bg-red-500 hover:bg-red-600"
+        >
+          <PhoneOff className="h-6 w-6" />
+        </Button>
+
+        <Button
+          onClick={toggleVideo}
+          className={`p-4 rounded-full transition-all ${
+            isVideoOff
+              ? "bg-red-500 hover:bg-red-600"
+              : "bg-gray-700 hover:bg-gray-600"
+          }`}
+        >
+          {isVideoOff ? (
+            <VideoOff className="h-6 w-6" />
+          ) : (
+            <Video className="h-6 w-6" />
+          )}
+        </Button>
       </div>
     </div>
   );
 }
 
-// Create a loading component for the Suspense fallback
 function VideoCallLoading() {
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center">
       <div className="text-center text-white">
-        <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
         <p>Loading video call...</p>
       </div>
     </div>
   );
 }
 
-// Main component wrapped with Suspense
 export default function DoctorVideoCall() {
   return (
     <Suspense fallback={<VideoCallLoading />}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Phone, PhoneOff, User, Clock } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { agoraCallingService } from "@/lib/agora-calling-service";
@@ -35,6 +35,20 @@ export default function IncomingCallModal({
   const router = useRouter();
   const ringTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const startTimeRef = useRef(Date.now());
+
+  // Handle cleanup function
+  const cleanup = () => {
+    console.log("IncomingCallModal: Cleaning up timers");
+    if (ringTimeoutRef.current) {
+      clearTimeout(ringTimeoutRef.current);
+      ringTimeoutRef.current = null;
+    }
+    if (durationIntervalRef.current) {
+      clearInterval(durationIntervalRef.current);
+      durationIntervalRef.current = null;
+    }
+  };
 
   useEffect(() => {
     console.log("IncomingCallModal: Modal mounted with call", incomingCall);
@@ -44,39 +58,34 @@ export default function IncomingCallModal({
     });
 
     // Start call duration timer
-    const startTime = Date.now();
+    startTimeRef.current = Date.now();
     durationIntervalRef.current = setInterval(() => {
-      setCallDuration(Math.floor((Date.now() - startTime) / 1000));
+      setCallDuration(Math.floor((Date.now() - startTimeRef.current) / 1000));
     }, 1000);
 
-    // Auto-reject after 30 seconds
+    // Auto-reject after 30 seconds - avoid stale closure by using timeout directly
     ringTimeoutRef.current = setTimeout(() => {
-      if (isRinging) {
-        console.log("IncomingCallModal: Auto-rejecting call due to timeout");
-        rejectCall();
-      }
+      console.log("IncomingCallModal: Auto-rejecting call due to timeout");
+      setIsRinging((currentIsRinging) => {
+        if (currentIsRinging) {
+          cleanup();
+          callNotifications.notifyCallEnded(
+            incomingCall.appointmentId,
+            "Call rejected - timeout"
+          );
+          onClose();
+        }
+        return false;
+      });
     }, 30000);
 
-    return () => {
-      console.log("IncomingCallModal: Cleaning up timers");
-      if (ringTimeoutRef.current) {
-        clearTimeout(ringTimeoutRef.current);
-      }
-      if (durationIntervalRef.current) {
-        clearInterval(durationIntervalRef.current);
-      }
-    };
-  }, [incomingCall.callId, isRinging, userId, userRole]);
+    return cleanup;
+  }, [incomingCall.callId]); // Removed isRinging, userId, userRole to prevent unnecessary re-renders
 
   const handleClose = () => {
     console.log("IncomingCallModal: Closing modal");
     setIsRinging(false);
-    if (ringTimeoutRef.current) {
-      clearTimeout(ringTimeoutRef.current);
-    }
-    if (durationIntervalRef.current) {
-      clearInterval(durationIntervalRef.current);
-    }
+    cleanup();
     onClose();
   };
 
@@ -84,9 +93,7 @@ export default function IncomingCallModal({
     try {
       console.log("IncomingCallModal: Accepting call", incomingCall.callId);
 
-      if (ringTimeoutRef.current) {
-        clearTimeout(ringTimeoutRef.current);
-      }
+      cleanup(); // Clean up timers immediately
 
       // Notify about call acceptance
       callNotifications.notifyCallJoined(incomingCall.appointmentId, userName);
@@ -105,9 +112,7 @@ export default function IncomingCallModal({
   const rejectCall = () => {
     console.log("IncomingCallModal: Rejecting call", incomingCall.callId);
 
-    if (ringTimeoutRef.current) {
-      clearTimeout(ringTimeoutRef.current);
-    }
+    cleanup(); // Clean up timers immediately
 
     // Notify about call rejection
     callNotifications.notifyCallEnded(
@@ -203,11 +208,29 @@ export default function IncomingCallModal({
         url: callUrl.substring(0, 100) + "...",
       });
 
-      // Open video call in new tab with EXACT same channel
-      const newWindow = window.open(callUrl, "_blank");
+      // 🔥 CRITICAL FIX: Redirect in SAME TAB instead of new tab for better sync
+      console.log(
+        "✅ IncomingCallModal: Redirecting to video call in same tab"
+      );
+      router.push(callUrl);
 
-      if (!newWindow) {
-        throw new Error("Popup blocked. Please allow popups for this site.");
+      // Notify the channel status API that user is accepting the call
+      try {
+        await fetch("/api/agora/channel-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            channel: incomingCall.channelName,
+            uid: uid,
+            role: userRole,
+            action: "join",
+          }),
+        });
+        console.log(
+          `✅ IncomingCallModal: Notified channel status - ${userRole} accepting call`
+        );
+      } catch (error) {
+        console.warn("Failed to notify channel status:", error);
       }
 
       console.log(

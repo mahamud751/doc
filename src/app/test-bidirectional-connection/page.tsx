@@ -207,7 +207,7 @@ export default function TestBidirectionalConnection() {
               <Button
                 onClick={testCompleteFlow}
                 className="w-full bg-green-600 hover:bg-green-700 text-lg py-4"
-                disabled={patientWindow || doctorWindow}
+                disabled={!!patientWindow || !!doctorWindow}
               >
                 🚀 Test Complete Bidirectional Flow
               </Button>

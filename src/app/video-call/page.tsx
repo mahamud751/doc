@@ -1,21 +1,22 @@
 "use client";
+"use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Video, VideoOff, Mic, MicOff, PhoneOff } from "lucide-react";
 
-export default function VideoCallPage() {
+function VideoCallContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [callInfo, setCallInfo] = useState({
     channel: "",
     token: "",
     uid: "",
-    appId: ""
+    appId: "",
   });
 
   useEffect(() => {
@@ -24,11 +25,16 @@ export default function VideoCallPage() {
     const token = searchParams.get("token") || "";
     const uid = searchParams.get("uid") || "";
     const appId = searchParams.get("appId") || "";
-    
+
     setCallInfo({ channel, token, uid, appId });
-    
+
     // In a real implementation, you would initialize the Agora SDK here
-    console.log("Initializing video call with:", { channel, token, uid, appId });
+    console.log("Initializing video call with:", {
+      channel,
+      token,
+      uid,
+      appId,
+    });
   }, [searchParams]);
 
   const toggleVideo = () => {
@@ -120,5 +126,24 @@ export default function VideoCallPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function VideoCallLoading() {
+  return (
+    <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
+      <div className="text-white text-center">
+        <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p>Loading video call...</p>
+      </div>
+    </div>
+  );
+}
+
+export default function VideoCallPage() {
+  return (
+    <Suspense fallback={<VideoCallLoading />}>
+      <VideoCallContent />
+    </Suspense>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 // Define specific event data types
-interface MessageData {
+export interface MessageData {
   id: string;
   fromUserId: string;
   toUserId: string;
@@ -10,12 +10,12 @@ interface MessageData {
   timestamp: string;
 }
 
-interface OrderUpdateData {
+export interface OrderUpdateData {
   orderId: string;
   status: string;
 }
 
-interface DoctorStatusData {
+export interface DoctorStatusData {
   doctorId: string;
   status: "online" | "busy" | "away";
 }
@@ -55,7 +55,7 @@ interface RealTimeEvent {
   id: string;
   userId: string;
   eventType: string;
-  data: any;
+  data: unknown;
   timestamp: number;
   processed?: boolean;
 }

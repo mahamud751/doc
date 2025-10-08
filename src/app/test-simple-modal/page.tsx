@@ -1,4 +1,5 @@
 "use client";
+"use client";
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
@@ -7,6 +8,11 @@ import { callingService } from "@/lib/calling-service";
 export default function TestSimpleModal() {
   const [modalMessage, setModalMessage] = useState<string>("");
   const [callLog, setCallLog] = useState<string[]>([]);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const addLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -14,6 +20,8 @@ export default function TestSimpleModal() {
   };
 
   useEffect(() => {
+    if (!isClient) return;
+
     // Set up test doctor user in localStorage
     localStorage.setItem("authToken", "test-token-doctor");
     localStorage.setItem("userId", "doctor_123");
@@ -36,11 +44,11 @@ export default function TestSimpleModal() {
     return () => {
       callingService.offIncomingCall();
     };
-  }, []);
+  }, [isClient]);
 
   const simulatePatientCall = () => {
     addLog("🚀 Simulating patient call...");
-    
+
     // Simulate a patient calling this doctor
     const mockCall = {
       callId: `test_call_${Date.now()}`,
@@ -87,9 +95,7 @@ export default function TestSimpleModal() {
               <h2 className="text-2xl font-bold mb-4 text-center text-blue-600">
                 📞 Incoming Call!
               </h2>
-              <p className="text-lg text-center mb-6">
-                {modalMessage}
-              </p>
+              <p className="text-lg text-center mb-6">{modalMessage}</p>
               <div className="flex justify-center">
                 <Button
                   onClick={closeModal}
@@ -123,13 +129,20 @@ export default function TestSimpleModal() {
 
         {/* Instructions */}
         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h2 className="text-xl font-semibold mb-2 text-blue-800">🎯 Test Instructions</h2>
+          <h2 className="text-xl font-semibold mb-2 text-blue-800">
+            🎯 Test Instructions
+          </h2>
           <ol className="list-decimal list-inside space-y-2 text-sm text-blue-700">
             <li>Page automatically sets up test doctor user in localStorage</li>
             <li>GlobalIncomingCallHandler should detect the user context</li>
             <li>Click "📞 Simulate Patient Call" to test the modal</li>
-            <li><strong>Expected Result:</strong> Modal should show "Patient call you" message</li>
-            <li>If modal appears, the real-time notification system is working!</li>
+            <li>
+              <strong>Expected Result:</strong> Modal should show "Patient call
+              you" message
+            </li>
+            <li>
+              If modal appears, the real-time notification system is working!
+            </li>
           </ol>
           <p className="mt-3 text-sm font-semibold text-blue-800">
             🚀 This tests the GlobalIncomingCallHandler in the global layout!
@@ -138,7 +151,9 @@ export default function TestSimpleModal() {
 
         {/* Global Handler Status */}
         <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <h2 className="text-xl font-semibold mb-2 text-yellow-800">📊 System Status</h2>
+          <h2 className="text-xl font-semibold mb-2 text-yellow-800">
+            📊 System Status
+          </h2>
           <div className="space-y-2 text-sm text-yellow-700">
             <div>✅ Real-time polling: Active (check terminal logs)</div>
             <div>✅ LocalStorage: Test user set</div>
@@ -167,9 +182,24 @@ export default function TestSimpleModal() {
         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
           <h2 className="text-lg font-semibold mb-2">🔍 Debug Info</h2>
           <div className="text-sm space-y-1">
-            <div>Current userId: {localStorage.getItem("userId") || "Not set"}</div>
-            <div>Current userRole: {localStorage.getItem("userRole") || "Not set"}</div>
-            <div>Current userName: {localStorage.getItem("userName") || "Not set"}</div>
+            <div>
+              Current userId:{" "}
+              {isClient
+                ? localStorage.getItem("userId") || "Not set"
+                : "Loading..."}
+            </div>
+            <div>
+              Current userRole:{" "}
+              {isClient
+                ? localStorage.getItem("userRole") || "Not set"
+                : "Loading..."}
+            </div>
+            <div>
+              Current userName:{" "}
+              {isClient
+                ? localStorage.getItem("userName") || "Not set"
+                : "Loading..."}
+            </div>
             <div>Modal showing: {modalMessage ? "YES" : "NO"}</div>
           </div>
         </div>
