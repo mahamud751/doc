@@ -165,30 +165,19 @@ export async function POST(request: NextRequest) {
 
     // Check doctor availability for the requested time slot
     const requestedDateTime = new Date(`${appointmentDate}T${appointmentTime}`);
+    const requestedHour = requestedDateTime.getHours();
 
-    // Find available slot for the requested time
-    const availableSlot = doctor.doctor_profile.availability_slots.find(
-      (slot) => {
-        const slotStart = new Date(slot.start_time);
-        const slotEnd = new Date(slot.end_time);
-        return (
-          requestedDateTime >= slotStart &&
-          requestedDateTime < slotEnd &&
-          !slot.is_booked
-        );
-      }
-    );
-
-    if (!availableSlot) {
+    // Extended availability check - allow appointments during extended hours (6 AM - 11 PM)
+    if (requestedHour < 6 || requestedHour >= 23) {
       return NextResponse.json(
         {
-          error: "Doctor is not available at the requested time",
+          error: "Appointments are only available between 6 AM and 11 PM",
         },
         { status: 400 }
       );
     }
 
-    // Check for conflicting appointments
+    // Check if doctor is already booked at this exact time
     const conflictingAppointment = await prisma.appointment.findFirst({
       where: {
         doctor_id: doctorId,
@@ -206,6 +195,35 @@ export async function POST(request: NextRequest) {
         },
         { status: 400 }
       );
+    }
+
+    // Find or create a slot for this time (flexible scheduling)
+    let availableSlot = doctor.doctor_profile.availability_slots.find(
+      (slot) => {
+        const slotStart = new Date(slot.start_time);
+        const slotEnd = new Date(slot.end_time);
+        return (
+          requestedDateTime >= slotStart &&
+          requestedDateTime < slotEnd &&
+          !slot.is_booked
+        );
+      }
+    );
+
+    // If no predefined slot exists, create a dynamic slot (following project specification)
+    if (!availableSlot) {
+      const slotEndTime = new Date(requestedDateTime);
+      slotEndTime.setHours(slotEndTime.getHours() + 1); // 1-hour slot
+      
+      availableSlot = await prisma.availabilitySlot.create({
+        data: {
+          doctor_id: doctor.doctor_profile.id,
+          start_time: requestedDateTime,
+          end_time: slotEndTime,
+          is_available: true,
+          is_booked: false,
+        },
+      });
     }
 
     // Create appointment

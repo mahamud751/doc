@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,42 +8,15 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search");
     const available = searchParams.get("available");
 
-    const whereClause: Prisma.UserWhereInput = {};
-
-    // Add specialty filter
-    if (specialty) {
-      whereClause.doctor_profile = {
-        specialties: {
-          has: specialty,
+    // Fetch all active doctors with profiles
+    const allDoctors = await prisma.user.findMany({
+      where: {
+        role: "DOCTOR",
+        is_active: true,
+        doctor_profile: {
+          isNot: null,
         },
-      };
-    }
-
-    // Add search filter
-    if (search) {
-      whereClause.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        {
-          doctor_profile: {
-            specialties: {
-              hasSome: [search],
-            },
-          },
-        },
-      ];
-    }
-
-    // Add availability filter
-    if (available === "true" && whereClause.doctor_profile) {
-      whereClause.doctor_profile.is_available_online = true;
-    } else if (available === "true") {
-      whereClause.doctor_profile = {
-        is_available_online: true,
-      };
-    }
-
-    const doctors = await prisma.user.findMany({
-      where: whereClause,
+      },
       include: {
         doctor_profile: {
           include: {
@@ -65,14 +37,46 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: {
-        doctor_profile: {
-          rating: "desc",
-        },
+        created_at: "desc",
       },
     });
 
+    // Filter by verification status and other criteria
+    let filteredDoctors = allDoctors.filter(
+      (doctor) => 
+        doctor.doctor_profile?.verification?.status === "APPROVED"
+    );
+
+    // Apply specialty filter
+    if (specialty) {
+      filteredDoctors = filteredDoctors.filter(
+        (doctor) => 
+          doctor.doctor_profile?.specialties?.includes(specialty)
+      );
+    }
+
+    // Apply availability filter
+    if (available === "true") {
+      filteredDoctors = filteredDoctors.filter(
+        (doctor) => 
+          doctor.doctor_profile?.is_available_online === true
+      );
+    }
+
+    // Apply search filter
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filteredDoctors = filteredDoctors.filter(
+        (doctor) => 
+          doctor.name.toLowerCase().includes(searchLower) ||
+          doctor.doctor_profile?.specialties?.some(
+            (spec) => spec.toLowerCase().includes(searchLower)
+          )
+      );
+    }
+
     // Transform the data to match the expected format
-    const formattedDoctors = doctors.map((doctor) => ({
+    const formattedDoctors = filteredDoctors.map((doctor) => ({
       id: doctor.id,
       name: doctor.name,
       email: doctor.email,

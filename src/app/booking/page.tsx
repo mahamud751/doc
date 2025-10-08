@@ -1,5 +1,6 @@
 "use client";
 
+import NavigationHeader from "@/components/NavigationHeader";
 import { Button } from "@/components/ui/Button";
 
 import { AnimatePresence, motion } from "framer-motion";
@@ -19,9 +20,13 @@ import {
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-interface Doctor {
+// API Response type that matches the actual response from /api/doctors
+interface DoctorApiResponse {
   id: string;
   name: string;
+  email: string;
+  phone: string;
+  avatar_url?: string;
   specialties: string[];
   qualifications: string[];
   experience_years: number;
@@ -29,8 +34,9 @@ interface Doctor {
   rating: number;
   total_reviews: number;
   bio: string;
-  avatar_url?: string;
   is_available_online: boolean;
+  languages: string[];
+  clinic_locations: unknown[];
   next_available_slots: Array<{
     id: string;
     start_time: string;
@@ -38,7 +44,11 @@ interface Doctor {
     is_available: boolean;
     is_booked?: boolean;
   }>;
-  avatar: string;
+}
+
+// Local Doctor interface for internal use
+interface Doctor extends DoctorApiResponse {
+  avatar?: string;
   doctor_profile?: {
     specialties?: string[];
     qualifications?: string[];
@@ -149,6 +159,20 @@ export default function BookAppointmentPage() {
       return;
     }
 
+    // Load selected doctor from localStorage
+    const selectedDoctorData = localStorage.getItem("selectedDoctor");
+    if (selectedDoctorData) {
+      try {
+        const doctor = JSON.parse(selectedDoctorData);
+        setSelectedDoctor(doctor);
+        setCurrentStep(1); // Move to date selection step
+        // Clear the localStorage after loading
+        localStorage.removeItem("selectedDoctor");
+      } catch (error) {
+        console.error("Failed to parse selected doctor:", error);
+      }
+    }
+
     // Fetch real doctors data from API
     fetchDoctors();
   }, [router]);
@@ -234,9 +258,9 @@ export default function BookAppointmentPage() {
 
       const data = await response.json();
 
-      // Redirect to success page with appointment ID
+      // Redirect to patient dashboard after successful booking
       router.push(
-        `/patient/appointments?booking=success&appointmentId=${data.appointment.id}`
+        `/patient/dashboard?booking=success&appointmentId=${data.appointment.id}`
       );
     } catch (error: unknown) {
       setError(
@@ -316,6 +340,9 @@ export default function BookAppointmentPage() {
           className="absolute bottom-0 right-0 w-96 h-96 bg-purple-300/10 rounded-full blur-3xl"
         />
       </div>
+
+      {/* Navigation Header */}
+      <NavigationHeader currentPage="booking" />
 
       <div className="relative z-10 p-6 pt-24">
         <div className="max-w-7xl mx-auto">
@@ -399,153 +426,188 @@ export default function BookAppointmentPage() {
               animate={{ opacity: 1, x: 0 }}
               className="lg:col-span-2 space-y-6"
             >
-              {/* Specialties Quick Filter */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/30 p-6"
-              >
-                <h2 className="text-xl font-bold text-gray-900 mb-4">
-                  Specialties
-                </h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {specialties.map((specialty, index) => (
-                    <motion.div
-                      key={specialty.name}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 0.3 + index * 0.1 }}
-                      whileHover={{ y: -5, scale: 1.05 }}
-                      className="flex items-center p-3 bg-white rounded-2xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-all duration-300"
-                    >
-                      <div
-                        className={`bg-gradient-to-r ${specialty.color} p-2 rounded-xl mr-3`}
-                      >
-                        <specialty.icon className="w-4 h-4 text-white" />
-                      </div>
-                      <span className="text-sm font-medium text-gray-900">
-                        {specialty.name}
-                      </span>
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
-
-              {/* Doctors List */}
+              {/* Doctors List - Remove Specialties Quick Filter */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
                 className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/30 p-6"
               >
-                <h2 className="text-xl font-bold text-gray-900 mb-6">
-                  Available Doctors
-                </h2>
-                <div className="space-y-6">
-                  {doctors.map((doctor, index) => (
-                    <motion.div
-                      key={doctor.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.4 + index * 0.1 }}
-                      whileHover={{ y: -5, scale: 1.01 }}
-                      onHoverStart={() => setHoveredCard(doctor.id)}
-                      onHoverEnd={() => setHoveredCard(null)}
-                      className={`border-2 rounded-3xl p-6 cursor-pointer transition-all duration-300 relative overflow-hidden ${
-                        selectedDoctor?.id === doctor.id
-                          ? "border-blue-500 bg-gradient-to-r from-blue-50 to-cyan-50 shadow-lg"
-                          : "border-white bg-white hover:border-blue-300 hover:shadow-lg"
-                      }`}
-                      onClick={async () => {
-                        setSelectedDoctor(doctor);
-                        // Reset date and time when selecting a new doctor
-                        setSelectedDate("");
-                        setSelectedTime("");
-                        setTimeSlots([]);
-                      }}
-                    >
-                      {/* Animated background effect */}
-                      <motion.div
-                        animate={{
-                          opacity:
-                            hoveredCard === doctor.id ? [0.1, 0.2, 0.1] : 0.1,
+                {selectedDoctor ? (
+                  // Show selected doctor card
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xl font-bold text-gray-900">
+                        Selected Doctor
+                      </h2>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedDoctor(null);
+                          setCurrentStep(1);
                         }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                        className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-transparent to-purple-500/10"
-                      />
-
-                      <div className="flex items-start space-x-6 relative z-10">
-                        <motion.div
-                          whileHover={{ scale: 1.1, rotate: 5 }}
-                          className="text-5xl"
-                        >
-                          {doctor.avatar}
-                        </motion.div>
+                        className="text-sm"
+                      >
+                        Change Doctor
+                      </Button>
+                    </div>
+                    <motion.div
+                      className="border-2 border-blue-500 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-3xl p-6 shadow-lg"
+                    >
+                      <div className="flex items-start space-x-4">
+                        <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center shadow-lg">
+                          <Stethoscope className="h-8 w-8 text-white" />
+                        </div>
                         <div className="flex-1">
-                          <div className="flex items-start justify-between mb-4">
-                            <div>
-                              <h3 className="text-2xl font-bold text-gray-900">
-                                {doctor.name}
-                              </h3>
-                              <div className="flex flex-wrap gap-2 mt-2">
-                                {doctor.specialties.map((specialty, index) => (
-                                  <motion.span
-                                    key={index}
-                                    whileHover={{ scale: 1.05 }}
-                                    className="inline-flex px-3 py-1 text-sm font-semibold bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 rounded-full border border-blue-200"
-                                  >
-                                    {specialty}
-                                  </motion.span>
-                                ))}
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="flex items-center space-x-2 mb-2">
-                                <Star className="w-5 h-5 text-yellow-400 fill-current" />
-                                <span className="font-bold text-gray-900">
-                                  {doctor.rating}
-                                </span>
-                                <span className="text-gray-600">
-                                  ({doctor.total_reviews})
-                                </span>
-                              </div>
-                              <motion.div
-                                whileHover={{ scale: 1.05 }}
-                                className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent"
-                              >
-                                ${doctor.consultation_fee}
-                              </motion.div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-xl font-bold text-gray-900">
+                              {selectedDoctor.name}
+                            </h3>
+                            <div className="flex items-center bg-green-100 px-3 py-1 rounded-full">
+                              <div className="w-2 h-2 bg-green-500 rounded-full mr-2" />
+                              <span className="text-green-700 text-sm font-medium">
+                                Available
+                              </span>
                             </div>
                           </div>
-
-                          <p className="text-gray-600 mb-4 leading-relaxed">
-                            {doctor.bio}
+                          <p className="text-gray-600 mb-2">
+                            {selectedDoctor.specialties?.join(", ") || "General Physician"}
                           </p>
-
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-6 text-sm text-gray-600">
-                              <div className="flex items-center">
-                                <Zap className="w-4 h-4 mr-2 text-green-500" />
-                                <span>
-                                  {doctor.experience_years} years experience
-                                </span>
-                              </div>
-                              <div className="flex items-center">
-                                <Video className="w-4 h-4 mr-2 text-blue-500" />
-                                <span>Video Consultation</span>
-                              </div>
-                              <div className="flex items-center">
-                                <Shield className="w-4 h-4 mr-2 text-purple-500" />
-                                <span>Verified</span>
-                              </div>
-                            </div>
+                          <div className="flex items-center mb-3">
+                            <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                            <span className="text-sm text-gray-600 ml-1">
+                              {selectedDoctor.rating} ({selectedDoctor.total_reviews} reviews)
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-2xl font-bold text-gray-900">
+                              ৳{selectedDoctor.consultation_fee}
+                            </p>
+                            <p className="text-xs text-gray-500">Per session</p>
                           </div>
                         </div>
                       </div>
                     </motion.div>
-                  ))}
-                </div>
+                  </div>
+                ) : (
+                  // Show all doctors for selection
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900 mb-6">
+                      Available Doctors
+                    </h2>
+                    <div className="space-y-6">
+                      {doctors.map((doctor, index) => {
+                        // Explicitly type the doctor parameter to resolve TypeScript inference issues
+                        const typedDoctor = doctor as Doctor;
+                        return (
+                        <motion.div
+                          key={typedDoctor.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.4 + index * 0.1 }}
+                          whileHover={{ y: -5, scale: 1.01 }}
+                          onHoverStart={() => setHoveredCard(typedDoctor.id)}
+                          onHoverEnd={() => setHoveredCard(null)}
+                          className={`border-2 rounded-3xl p-6 cursor-pointer transition-all duration-300 relative overflow-hidden ${
+                            selectedDoctor?.id === typedDoctor.id
+                              ? "border-blue-500 bg-gradient-to-r from-blue-50 to-cyan-50 shadow-lg"
+                              : "border-white bg-white hover:border-blue-300 hover:shadow-lg"
+                          }`}
+                          onClick={async () => {
+                            setSelectedDoctor(typedDoctor);
+                            // Reset date and time when selecting a new doctor
+                            setSelectedDate("");
+                            setSelectedTime("");
+                            setTimeSlots([]);
+                          }}
+                        >
+                          {/* Animated background effect */}
+                          <motion.div
+                            animate={{
+                              opacity:
+                                hoveredCard === typedDoctor.id ? [0.1, 0.2, 0.1] : 0.1,
+                            }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                            className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-transparent to-purple-500/10"
+                          />
+
+                          <div className="relative z-10">
+                            <div className="flex items-start space-x-4">
+                              <motion.div
+                                whileHover={{ rotate: 5, scale: 1.1 }}
+                                className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center shadow-lg"
+                              >
+                                <Stethoscope className="h-8 w-8 text-white" />
+                              </motion.div>
+
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h3 className="text-xl font-bold text-gray-900">
+                                    {typedDoctor.name}
+                                  </h3>
+                                  <motion.div
+                                    whileHover={{ scale: 1.05 }}
+                                    className="flex items-center bg-green-100 px-3 py-1 rounded-full"
+                                  >
+                                    <div className="w-2 h-2 bg-green-500 rounded-full mr-2" />
+                                    <span className="text-green-700 text-sm font-medium">
+                                      Available
+                                    </span>
+                                  </motion.div>
+                                </div>
+
+                                <p className="text-gray-600 mb-2">
+                                  {typedDoctor.specialties?.join(", ") || "General Physician"}
+                                </p>
+
+                                <div className="flex items-center justify-between mb-4">
+                                  <div className="flex items-center">
+                                    <div className="flex items-center mr-4">
+                                      <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                                      <span className="text-sm text-gray-600 ml-1">
+                                        {typedDoctor.rating} ({typedDoctor.total_reviews})
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <motion.div
+                                    whileHover={{ scale: 1.05 }}
+                                    className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent"
+                                  >
+                                    ${typedDoctor.consultation_fee}
+                                  </motion.div>
+                                </div>
+
+                                <p className="text-gray-600 mb-4 leading-relaxed">
+                                  {typedDoctor.bio}
+                                </p>
+
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-6 text-sm text-gray-600">
+                                    <div className="flex items-center">
+                                      <Zap className="w-4 h-4 mr-2 text-green-500" />
+                                      <span>
+                                        {typedDoctor.experience_years} years experience
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <Video className="w-4 h-4 mr-2 text-blue-500" />
+                                      <span>Video Consultation</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <Shield className="w-4 h-4 mr-2 text-purple-500" />
+                                      <span>Verified</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </motion.div>
             </motion.div>
 
@@ -755,4 +817,5 @@ export default function BookAppointmentPage() {
       </div>
     </div>
   );
+}
 }

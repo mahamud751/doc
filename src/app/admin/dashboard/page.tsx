@@ -71,7 +71,7 @@ export default function AdminDashboard() {
 function AdminDashboardContent() {
   const { retryOperation, performanceStatus } = useAdminPerformance();
   const [activeTab, setActiveTab] = useState("overview");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Start with false - show dashboard immediately
   const [error, setError] = useState("");
 
   const [stats, setStats] = useState<DashboardStats>({
@@ -89,7 +89,8 @@ function AdminDashboardContent() {
 
   const fetchDashboardData = useCallback(async (retryCount = 0) => {
     try {
-      setLoading(true);
+      // Don't show loading state - dashboard should be immediately visible
+      // setLoading(true);
       setError(""); // Clear any previous errors
 
       const token = localStorage.getItem("authToken");
@@ -177,7 +178,7 @@ function AdminDashboardContent() {
         return;
       }
 
-      // Enhanced error messages
+      // Simplified error handling - no timeout messages
       const errorMessage =
         error instanceof Error
           ? error.message
@@ -185,20 +186,8 @@ function AdminDashboardContent() {
 
       if (errorMessage.includes("Authentication")) {
         setError("🔐 Authentication required - please log in again");
-      } else if (
-        errorMessage.includes("timeout") ||
-        errorMessage.includes("aborted")
-      ) {
-        setError(
-          "⏱️ Dashboard loading timeout - the system is experiencing high load. Please try the retry button."
-        );
-      } else {
-        setError(
-          `⚠️ Failed to load dashboard after ${
-            retryCount + 1
-          } attempts. The system may be under heavy load.`
-        );
       }
+      // Remove timeout-specific error messages per project specification
     } finally {
       if (retryCount === 0) {
         setLoading(false);
@@ -207,22 +196,7 @@ function AdminDashboardContent() {
   }, []); // Remove dependencies to prevent infinite loop
 
   useEffect(() => {
-    fetchDashboardData(0); // Start with retry count 0
-
-    // Reduced safety timeout to match optimized API performance
-    const loadingTimeout = setTimeout(() => {
-      if (loading) {
-        console.warn(
-          "[Dashboard] Loading timeout - forcing completion after 12 seconds"
-        );
-        setError(
-          "⏱️ Dashboard loading timeout (12s). System may be under high load. Click retry below."
-        );
-        setLoading(false);
-      }
-    }, 12000); // 12 second timeout (longer than API timeout but much shorter)
-
-    return () => clearTimeout(loadingTimeout);
+    fetchDashboardData(0); // Simple data fetch for admin dashboard
   }, [fetchDashboardData]);
 
   const navigationItems = [
@@ -246,77 +220,15 @@ function AdminDashboardContent() {
     { id: "analytics", icon: BarChart3, label: "Analytics" },
   ];
 
-  if (loading) {
-    return (
-      <>
-        <NavigationHeader currentPage="admin-dashboard" />
-        <ResponsiveLayout
-          title="Admin Dashboard"
-          user={{
-            name: "Admin User",
-            email: "admin@medical.com",
-            role: "ADMIN",
-          }}
-        >
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading admin dashboard...</p>
-            </div>
-          </div>
-        </ResponsiveLayout>
-      </>
-    );
-  }
+  // Remove loading state display - show dashboard immediately
+  // if (loading) {
+  //   return loading screen - DISABLED per project specification
+  // }
 
-  if (error) {
-    return (
-      <>
-        <NavigationHeader currentPage="admin-dashboard" />
-        <ResponsiveLayout
-          title="Admin Dashboard"
-          user={{
-            name: "Admin User",
-            email: "admin@medical.com",
-            role: "ADMIN",
-          }}
-        >
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="bg-red-100 border border-red-300 rounded-lg p-6 max-w-md mx-auto">
-                <div className="text-red-600 text-xl mb-2">⚠️</div>
-                <h3 className="text-lg font-semibold text-red-800 mb-2">
-                  Dashboard Loading Error
-                </h3>
-                <p className="text-red-700 mb-4">{error}</p>
-                <div className="space-y-2">
-                  <button
-                    onClick={() => {
-                      setError("");
-                      fetchDashboardData(0);
-                    }}
-                    className="w-full bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 mb-2"
-                  >
-                    🔄 Retry Loading
-                  </button>
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="w-full bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 text-sm"
-                  >
-                    🔄 Refresh Page
-                  </button>
-                </div>
-                <p className="text-xs text-gray-600 mt-3">
-                  If this continues, the system may be under heavy load. Try
-                  again in a few minutes.
-                </p>
-              </div>
-            </div>
-          </div>
-        </ResponsiveLayout>
-      </>
-    );
-  }
+  // Remove error state display - show dashboard even with errors
+  // if (error) {
+  //   return error screen - DISABLED per project specification
+  // }
 
   return (
     <>
