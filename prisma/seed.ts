@@ -208,13 +208,6 @@ async function main() {
       preparation_instructions: "Fasting not required",
       sample_type: "Blood",
       reporting_time: "1-2 days",
-      tests_included: [
-        "RBC Count",
-        "WBC Count",
-        "Platelet Count",
-        "Hemoglobin",
-        "Hematocrit",
-      ],
       is_home_collection: true,
     },
     {
@@ -226,7 +219,6 @@ async function main() {
       preparation_instructions: "12-hour fasting required",
       sample_type: "Blood",
       reporting_time: "1 day",
-      tests_included: ["Total Cholesterol", "HDL", "LDL", "Triglycerides"],
       is_home_collection: true,
     },
     {
@@ -238,7 +230,6 @@ async function main() {
       preparation_instructions: "No special preparation required",
       sample_type: "Blood",
       reporting_time: "2-3 days",
-      tests_included: ["TSH", "T3", "T4", "Free T4"],
       is_home_collection: true,
     },
   ];
