@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack -p 3021",
+    "dev": "next dev --turbopack -p 3055",
     "build": "next build --turbopack",
-    "start": "next start -p 3021",
+    "start": "next start -p 3055",
     "lint": "eslint",
     "seed": "tsx prisma/seed.ts"
   },
