@@ -614,12 +614,13 @@ export default function DoctorManagement() {
       const targetDate = new Date(today);
       targetDate.setDate(today.getDate() + daysUntilTarget);
 
-      const startDateTime = `${
-        targetDate.toISOString().split("T")[0]
-      }T${startTime}:00`;
-      const endDateTime = `${
-        targetDate.toISOString().split("T")[0]
-      }T${endTime}:00`;
+      // Construct local Date objects to avoid timezone shift when converting to ISO
+      const [startHour, startMinute] = startTime.split(":").map(Number);
+      const [endHour, endMinute] = endTime.split(":").map(Number);
+      const startLocal = new Date(targetDate);
+      startLocal.setHours(startHour, startMinute, 0, 0);
+      const endLocal = new Date(targetDate);
+      endLocal.setHours(endHour, endMinute, 0, 0);
 
       const response = await fetch("/api/admin/doctors/schedule", {
         method: "POST",
@@ -629,8 +630,8 @@ export default function DoctorManagement() {
         },
         body: JSON.stringify({
           doctor_id: selectedDoctorForAvailability.id,
-          start_time: startDateTime,
-          end_time: endDateTime,
+          start_time: startLocal.toISOString(),
+          end_time: endLocal.toISOString(),
           slot_duration: slotDuration,
           is_recurring: true,
           recurrence_pattern: {
@@ -2242,12 +2243,13 @@ export default function DoctorManagement() {
                       const targetDate = new Date(today);
                       targetDate.setDate(today.getDate() + daysUntilTarget);
 
-                      const startDateTime = `${
-                        targetDate.toISOString().split("T")[0]
-                      }T${newSlotStartTime}:00`;
-                      const endDateTime = `${
-                        targetDate.toISOString().split("T")[0]
-                      }T${newSlotEndTime}:00`;
+                      // Construct local Date objects to avoid timezone shift when converting to ISO
+                      const [startHour, startMinute] = newSlotStartTime.split(":").map(Number);
+                      const [endHour, endMinute] = newSlotEndTime.split(":").map(Number);
+                      const startLocal = new Date(targetDate);
+                      startLocal.setHours(startHour, startMinute, 0, 0);
+                      const endLocal = new Date(targetDate);
+                      endLocal.setHours(endHour, endMinute, 0, 0);
 
                       try {
                         const response = await fetch(
@@ -2260,8 +2262,8 @@ export default function DoctorManagement() {
                             },
                             body: JSON.stringify({
                               doctor_id: selectedDoctorForAvailability?.id,
-                              start_time: startDateTime,
-                              end_time: endDateTime,
+                              start_time: startLocal.toISOString(),
+                              end_time: endLocal.toISOString(),
                               slot_duration: newSlotDuration,
                               is_recurring: true,
                               recurrence_pattern: {

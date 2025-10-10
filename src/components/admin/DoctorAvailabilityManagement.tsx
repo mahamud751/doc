@@ -79,14 +79,21 @@ export default function DoctorAvailabilityManagement() {
   >({});
   const [weeklySlots, setWeeklySlots] = useState<AvailabilitySlot[]>([]);
 
+  // Helper to format a Date as local YYYY-MM-DD (no timezone shifts)
+  const formatLocalDateYYYYMMDD = (d: Date) => {
+    const year = d.getFullYear();
+    const month = (d.getMonth() + 1).toString().padStart(2, "0");
+    const day = d.getDate().toString().padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
   // Generate next 7 days
   const getNext7Days = () => {
-    const days = [];
+    const days: string[] = [];
     const today = new Date();
     for (let i = 0; i < 7; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
-      days.push(date.toISOString().split("T")[0]);
+      days.push(formatLocalDateYYYYMMDD(date));
     }
     return days;
   };
@@ -320,7 +327,7 @@ export default function DoctorAvailabilityManagement() {
       const targetDate = new Date(today);
       targetDate.setDate(today.getDate() + daysUntilTarget);
 
-      // Create local Date instances to avoid timezone shifts when converting to ISO
+      // Construct local Date objects to avoid timezone shift when converting to ISO
       const [startHour, startMinute] = startTime.split(":").map(Number);
       const [endHour, endMinute] = endTime.split(":").map(Number);
       const startLocal = new Date(targetDate);
@@ -693,9 +700,7 @@ export default function DoctorAvailabilityManagement() {
               <div className="space-y-6">
                 {availableDates.map((date) => {
                   const slotsForDate = availabilitySlots.filter(
-                    (slot) =>
-                      new Date(slot.start_time).toISOString().split("T")[0] ===
-                      date
+                    (slot) => formatLocalDateYYYYMMDD(new Date(slot.start_time)) === date
                   );
 
                   return (
