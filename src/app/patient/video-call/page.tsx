@@ -359,7 +359,8 @@ function PatientVideoCallContent() {
     <div className="min-h-screen bg-gray-900 relative">
       {/* Remote Video (Doctor) */}
       <div className="w-full h-screen bg-black relative">
-        {!isConnected || !remoteUsers.length ? (
+        <div ref={remoteVideoRef} className="w-full h-full" />
+        {(!isConnected || !remoteUsers.length) && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center text-white">
               <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
@@ -367,7 +368,7 @@ function PatientVideoCallContent() {
                 <>
                   <p className="text-lg">📞 Calling doctor...</p>
                   <p className="text-sm text-gray-300 mt-2">
-                    Waiting for doctor to accept
+                    Waiting for doctor to join
                   </p>
                 </>
               )}
@@ -381,15 +382,11 @@ function PatientVideoCallContent() {
               )}
             </div>
           </div>
-        ) : (
-          <>
-            {/* Doctor's video (remote) */}
-            <div ref={remoteVideoRef} className="w-full h-full" />
-            {/* Doctor label overlay */}
-            <div className="absolute top-4 left-4 bg-blue-500 text-white px-3 py-2 rounded-lg text-base font-semibold shadow-lg">
-              👨‍⚕️ Doctor
-            </div>
-          </>
+        )}
+        {isConnected && (
+          <div className="absolute top-4 left-4 bg-blue-500 text-white px-3 py-2 rounded-lg text-base font-semibold shadow-lg">
+            👨‍⚕️ Doctor
+          </div>
         )}
       </div>
 
