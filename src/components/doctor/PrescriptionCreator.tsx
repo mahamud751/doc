@@ -152,12 +152,13 @@ export default function PrescriptionCreator({
       const token = localStorage.getItem("authToken");
       if (!token) {
         setError("Authentication required");
+        setLoading(false);
         return;
       }
 
       // Prepare prescription data
       const prescriptionData = {
-        appointment_id: appointmentId,
+        appointment_id: appointmentId || null, // Allow null appointment_id
         patient_id: patient.id,
         diagnosis,
         instructions,
@@ -192,18 +193,27 @@ export default function PrescriptionCreator({
       const data = await response.json();
       setSuccess("Prescription created successfully!");
 
-      // Reset form
-      setDiagnosis("");
-      setInstructions("");
-      setFollowUpInstructions("");
-      setDrugs([]);
-      setLabTests([]);
+      // Generate PDF in background without blocking the UI
+      generatePrescriptionPDF(data.prescription.id)
+        .then(() => {
+          console.log("PDF generated successfully");
+        })
+        .catch((pdfError) => {
+          console.error("Error generating PDF:", pdfError);
+          // Don't show error to user as prescription was created successfully
+        });
 
-      // Notify parent component
-      onPrescriptionCreated();
+      // Reset form after a short delay to allow PDF download to start
+      setTimeout(() => {
+        setDiagnosis("");
+        setInstructions("");
+        setFollowUpInstructions("");
+        setDrugs([]);
+        setLabTests([]);
 
-      // Generate PDF
-      await generatePrescriptionPDF(data.prescription.id);
+        // Notify parent component
+        onPrescriptionCreated();
+      }, 1000);
     } catch (error) {
       console.error("Error creating prescription:", error);
       setError(
@@ -215,36 +225,33 @@ export default function PrescriptionCreator({
   };
 
   const generatePrescriptionPDF = async (prescriptionId: string) => {
-    try {
-      const token = localStorage.getItem("authToken");
-      if (!token) return;
-
-      const response = await fetch(
-        `/api/prescriptions/${prescriptionId}/generate-pdf`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to generate prescription PDF");
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `prescription-${prescriptionId.substring(0, 8)}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error("Error generating PDF:", error);
-      setError("Prescription created but failed to generate PDF");
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      throw new Error("Authentication required");
     }
+
+    const response = await fetch(
+      `/api/prescriptions/${prescriptionId}/generate-pdf`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to generate prescription PDF");
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `prescription-${prescriptionId.substring(0, 8)}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
   };
 
   return (
@@ -278,19 +285,22 @@ export default function PrescriptionCreator({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="font-medium text-gray-700">Name:</span>{" "}
-                {patient.name}
+                <span className="text-gray-900"> {patient.name}</span>
               </div>
               <div>
                 <span className="font-medium text-gray-700">Phone:</span>{" "}
-                {patient.phone}
+                <span className="text-gray-900"> {patient.phone}</span>
               </div>
               <div>
                 <span className="font-medium text-gray-700">Email:</span>{" "}
-                {patient.email}
+                <span className="text-gray-900"> {patient.email}</span>
               </div>
               <div>
                 <span className="font-medium text-gray-700">Blood Group:</span>{" "}
-                {patient.profile?.blood_group || "N/A"}
+                <span className="text-gray-900">
+                  {" "}
+                  {patient.profile?.blood_group || "N/A"}
+                </span>
               </div>
             </div>
           </div>
@@ -304,7 +314,7 @@ export default function PrescriptionCreator({
               value={diagnosis}
               onChange={(e) => setDiagnosis(e.target.value)}
               rows={3}
-              className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm resize-none"
+              className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm resize-none placeholder-gray-500"
               placeholder="Enter diagnosis"
             />
           </div>
@@ -340,7 +350,7 @@ export default function PrescriptionCreator({
                     onChange={(e) =>
                       setNewDrug({ ...newDrug, name: e.target.value })
                     }
-                    className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm"
+                    className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm placeholder-gray-500"
                     placeholder="Enter drug name"
                   />
                 </div>
@@ -354,7 +364,7 @@ export default function PrescriptionCreator({
                     onChange={(e) =>
                       setNewDrug({ ...newDrug, dosage: e.target.value })
                     }
-                    className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm"
+                    className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm placeholder-gray-500"
                     placeholder="e.g., 10mg"
                   />
                 </div>
@@ -368,7 +378,7 @@ export default function PrescriptionCreator({
                     onChange={(e) =>
                       setNewDrug({ ...newDrug, frequency: e.target.value })
                     }
-                    className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm"
+                    className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm placeholder-gray-500"
                     placeholder="e.g., Twice daily"
                   />
                 </div>
@@ -382,7 +392,7 @@ export default function PrescriptionCreator({
                     onChange={(e) =>
                       setNewDrug({ ...newDrug, duration: e.target.value })
                     }
-                    className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm"
+                    className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm placeholder-gray-500"
                     placeholder="e.g., 7 days"
                   />
                 </div>
@@ -396,7 +406,7 @@ export default function PrescriptionCreator({
                     onChange={(e) =>
                       setNewDrug({ ...newDrug, instructions: e.target.value })
                     }
-                    className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm"
+                    className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm placeholder-gray-500"
                     placeholder="Additional instructions"
                   />
                 </div>
@@ -467,7 +477,7 @@ export default function PrescriptionCreator({
                     onChange={(e) =>
                       setNewLabTest({ ...newLabTest, name: e.target.value })
                     }
-                    className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm"
+                    className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm placeholder-gray-500"
                     placeholder="Enter test name"
                   />
                 </div>
@@ -484,7 +494,7 @@ export default function PrescriptionCreator({
                         price: Number(e.target.value),
                       })
                     }
-                    className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm"
+                    className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm placeholder-gray-500"
                     placeholder="Enter price"
                   />
                 </div>
@@ -528,7 +538,7 @@ export default function PrescriptionCreator({
               value={instructions}
               onChange={(e) => setInstructions(e.target.value)}
               rows={3}
-              className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm resize-none"
+              className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm resize-none placeholder-gray-500"
               placeholder="General instructions for the patient"
             />
           </div>
@@ -542,7 +552,7 @@ export default function PrescriptionCreator({
               value={followUpInstructions}
               onChange={(e) => setFollowUpInstructions(e.target.value)}
               rows={2}
-              className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm resize-none"
+              className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm resize-none placeholder-gray-500"
               placeholder="Follow-up instructions"
             />
           </div>

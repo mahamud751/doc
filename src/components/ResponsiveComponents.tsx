@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { AnimatePresence, motion } from "framer-motion";
 
 interface ResponsiveGridProps {
   children: React.ReactNode;
@@ -90,10 +91,10 @@ export function ResponsiveTable({
   return (
     <div className="overflow-x-auto">
       <div className="inline-block min-w-full align-middle">
-        <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+        <div className="overflow-hidden shadow ring-1 ring-[var(--color-border)] md:rounded-lg">
           <table
             className={`
-            min-w-full divide-y divide-gray-300
+            min-w-full divide-y divide-[var(--color-border)]
             ${className}
           `}
           >
@@ -150,11 +151,14 @@ export function ResponsiveButton({
     "inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
 
   const variantClasses = {
-    primary: "bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500",
-    secondary: "bg-gray-600 text-white hover:bg-gray-700 focus:ring-gray-500",
+    primary:
+      "bg-[var(--color-primary)] text-white hover:bg-[color-mix(in_srgb,var(--color-primary),black_10%)] focus:ring-[var(--color-primary)]",
+    secondary:
+      "bg-[var(--color-secondary)] text-white hover:bg-[color-mix(in_srgb,var(--color-secondary),black_10%)] focus:ring-[var(--color-secondary)]",
     outline:
-      "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-blue-500",
-    ghost: "text-gray-700 hover:bg-gray-100 focus:ring-gray-500",
+      "border border-[var(--color-border)] bg-[var(--color-card)] text-white hover:bg-[var(--color-muted)] focus:ring-[var(--color-primary)]",
+    ghost:
+      "text-white hover:bg-[var(--color-muted)] focus:ring-[var(--color-foreground)]",
   };
 
   const sizeClasses = {
@@ -215,9 +219,11 @@ export function ResponsiveInput({
   return (
     <div className={fullWidth ? "w-full" : "w-auto"}>
       {label && (
-        <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+        <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1 sm:mb-2">
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && (
+            <span className="text-[var(--color-destructive)] ml-1">*</span>
+          )}
         </label>
       )}
       <input
@@ -227,18 +233,23 @@ export function ResponsiveInput({
         placeholder={placeholder}
         required={required}
         className={`
-          block w-full rounded-md border-gray-300 shadow-sm 
-          focus:border-blue-500 focus:ring-blue-500
+          block w-full rounded-md border-[var(--color-input)] shadow-sm 
+         
+          focus:border-[var(--color-primary)] focus:ring-[var(--color-primary)]
           text-sm sm:text-base px-3 py-2
           ${
             error
-              ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+              ? "border-[var(--color-destructive)] focus:border-[var(--color-destructive)] focus:ring-[var(--color-destructive)]"
               : ""
           }
           ${className}
         `}
       />
-      {error && <p className="mt-1 text-xs sm:text-sm text-red-600">{error}</p>}
+      {error && (
+        <p className="mt-1 text-xs sm:text-sm text-[var(--color-destructive)]">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -251,6 +262,7 @@ interface ResponsiveModalProps {
   children: React.ReactNode;
   size?: "sm" | "md" | "lg" | "xl" | "full";
   className?: string;
+  showOverlay?: boolean; // Add this new prop
 }
 
 export function ResponsiveModal({
@@ -260,9 +272,8 @@ export function ResponsiveModal({
   children,
   size = "md",
   className = "",
+  showOverlay = true,
 }: ResponsiveModalProps) {
-  if (!isOpen) return null;
-
   const sizeClasses = {
     sm: "max-w-sm",
     md: "max-w-md sm:max-w-lg",
@@ -272,32 +283,47 @@ export function ResponsiveModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center p-4 text-center sm:p-0">
-        <div
-          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-          onClick={onClose}
-        />
-
-        <div
-          className={`
-          relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all
-          w-full ${sizeClasses[size]} ${className}
-        `}
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          className="fixed inset-0 z-50 overflow-y-auto"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
         >
-          <div className="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
-            {title && (
-              <div className="mb-4 sm:mb-6">
-                <h3 className="text-lg font-medium leading-6 text-gray-900 sm:text-xl">
-                  {title}
-                </h3>
-              </div>
+          <div className="flex min-h-screen items-center justify-center p-4 text-center sm:p-0">
+            {showOverlay && (
+              <motion.div
+                className="fixed inset-0 bg-black/30 dark:bg-black/50"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={onClose}
+              />
             )}
 
-            <div className="mt-2">{children}</div>
+            <motion.div
+              className={`relative transform overflow-hidden rounded-2xl bg-[var(--color-popover)] text-[var(--color-popover-foreground)] shadow-2xl transition-all w-full ${sizeClasses[size]} modal-simple ${className}`}
+              initial={{ opacity: 0, y: 24, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 24, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 320, damping: 24 }}
+            >
+              <div className="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                {title && (
+                  <div className="mb-4 sm:mb-6">
+                    <h3 className="text-lg font-semibold leading-6 text-[var(--color-foreground)] sm:text-xl">
+                      {title}
+                    </h3>
+                  </div>
+                )}
+
+                <div className="mt-2 text-[var(--color-text)]">{children}</div>
+              </div>
+            </motion.div>
           </div>
-        </div>
-      </div>
-    </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

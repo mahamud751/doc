@@ -324,7 +324,7 @@ export default function PatientProfile({
                     name="name"
                     value={formData.name}
                     onChange={handleInputChange}
-                    className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm text-black placeholder-black"
+                    className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm text-black placeholder-gray-500"
                     placeholder="Enter your full name"
                   />
                 ) : (
@@ -346,7 +346,7 @@ export default function PatientProfile({
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm text-black placeholder-black"
+                      className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm text-black placeholder-gray-500"
                       placeholder="Enter your email address"
                       readOnly
                     />
@@ -370,7 +370,7 @@ export default function PatientProfile({
                     name="phone"
                     value={formData.phone}
                     onChange={handleInputChange}
-                    className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm text-black placeholder-black"
+                    className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm text-black placeholder-gray-500"
                     placeholder="Enter your phone number"
                   />
                 ) : (
@@ -389,7 +389,7 @@ export default function PatientProfile({
                     name="date_of_birth"
                     value={formData.date_of_birth}
                     onChange={handleInputChange}
-                    className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm text-black placeholder-black"
+                    className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm text-black placeholder-gray-500"
                   />
                 ) : (
                   <p className="text-black">
@@ -412,7 +412,7 @@ export default function PatientProfile({
                     name="gender"
                     value={formData.gender}
                     onChange={handleInputChange}
-                    className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm text-black placeholder-black"
+                    className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm text-black placeholder-gray-500"
                   >
                     <option value="">Select Gender</option>
                     <option value="MALE">Male</option>
@@ -473,7 +473,7 @@ export default function PatientProfile({
                     name="blood_group"
                     value={formData.blood_group}
                     onChange={handleInputChange}
-                    className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm text-black placeholder-black"
+                    className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm text-black placeholder-gray-500"
                   >
                     <option value="">Select Blood Group</option>
                     <option value="A+">A+</option>
@@ -504,7 +504,7 @@ export default function PatientProfile({
                     value={formData.emergency_contact}
                     onChange={handleInputChange}
                     placeholder="Emergency contact phone number"
-                    className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm text-black placeholder-black"
+                    className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm text-black placeholder-gray-500"
                   />
                 ) : (
                   <p className="text-black">

@@ -288,22 +288,22 @@ export default function LabTestManagement() {
         <div className="flex flex-col md:flex-row gap-4 mt-6">
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-foreground/50 w-4 h-4" />
               <input
                 type="text"
                 placeholder="Search tests..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-foreground placeholder:text-foreground/70 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:placeholder:text-foreground/60"
               />
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-500" />
+            <Filter className="w-4 h-4 text-foreground/60" />
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm text-foreground"
             >
               <option value="">All Categories</option>
               {categories.map((category) => (
@@ -524,8 +524,7 @@ export default function LabTestManagement() {
                 onChange={(e) =>
                   setFormData({ ...formData, category: e.target.value })
                 }
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                required
+                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm"
               >
                 <option value="">Select category</option>
                 {categories.map((category) => (
@@ -557,8 +556,7 @@ export default function LabTestManagement() {
                 onChange={(e) =>
                   setFormData({ ...formData, sample_type: e.target.value })
                 }
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                required
+                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm"
               >
                 <option value="">Select sample type</option>
                 {sampleTypes.map((type) => (
@@ -577,8 +575,7 @@ export default function LabTestManagement() {
                 onChange={(e) =>
                   setFormData({ ...formData, reporting_time: e.target.value })
                 }
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                required
+                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm"
               >
                 <option value="">Select reporting time</option>
                 {reportingTimes.map((time) => (
@@ -624,7 +621,7 @@ export default function LabTestManagement() {
                 }
                 placeholder="Enter preparation instructions"
                 rows={3}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm placeholder-gray-500"
               />
             </div>
           )}
@@ -640,7 +637,7 @@ export default function LabTestManagement() {
               }
               placeholder="Enter normal range values (optional)"
               rows={2}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm placeholder-gray-500"
             />
           </div>
 
@@ -655,7 +652,7 @@ export default function LabTestManagement() {
               }
               placeholder="Enter test description"
               rows={3}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm placeholder-gray-500"
               required
             />
           </div>

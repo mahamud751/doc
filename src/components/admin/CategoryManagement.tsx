@@ -246,7 +246,7 @@ export default function CategoryManagement() {
                 placeholder="Search categories..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-10 pr-4 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 placeholder-gray-500"
               />
             </div>
           </div>
@@ -255,7 +255,7 @@ export default function CategoryManagement() {
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+              className="block w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm text-sm"
             >
               <option value="">All Types</option>
               {categoryTypes.map((type) => (
@@ -409,7 +409,7 @@ export default function CategoryManagement() {
                   type: e.target.value as "medicine" | "lab" | "specialty",
                 })
               }
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm"
               disabled={!!editingCategory}
             >
               {categoryTypes.map((type) => (
@@ -431,7 +431,7 @@ export default function CategoryManagement() {
               }
               placeholder="Enter category description (optional)"
               rows={3}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm placeholder-gray-500"
             />
           </div>
 

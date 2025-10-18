@@ -104,7 +104,7 @@ export default function RegisterPage() {
           className="mt-8 sm:mx-auto sm:w-full sm:max-w-md"
         >
           <div className="bg-card border border-border py-8 px-4 shadow-xl sm:rounded-2xl sm:px-10">
-            <form className="space-y-6" onSubmit={handleSubmit}>
+            <form className="login-form space-y-6" onSubmit={handleSubmit}>
               {error && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
@@ -136,7 +136,7 @@ export default function RegisterPage() {
                       className={`flex-1 text-center py-3 px-4 rounded-xl border transition-all ${
                         formData.role === "PATIENT"
                           ? "border-primary bg-primary/5 text-primary"
-                          : "border-border hover:border-primary/30"
+                          : "border-border hover:border-primary/30 text-white"
                       }`}
                     >
                       <User className="w-5 h-5 mx-auto mb-1" />
@@ -158,7 +158,7 @@ export default function RegisterPage() {
                       className={`flex-1 text-center py-3 px-4 rounded-xl border transition-all ${
                         formData.role === "DOCTOR"
                           ? "border-primary bg-primary/5 text-primary"
-                          : "border-border hover:border-primary/30"
+                          : "border-border hover:border-primary/30 text-white"
                       }`}
                     >
                       <Stethoscope className="w-5 h-5 mx-auto mb-1" />
@@ -184,7 +184,7 @@ export default function RegisterPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, name: e.target.value })
                     }
-                    className="pl-10"
+                    className="pl-10 text-white placeholder-white"
                     placeholder="Enter your full name"
                   />
                 </div>
@@ -206,7 +206,7 @@ export default function RegisterPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, email: e.target.value })
                     }
-                    className="pl-10"
+                    className="pl-10 text-white placeholder-white"
                     placeholder="Enter your email"
                   />
                 </div>
@@ -228,7 +228,7 @@ export default function RegisterPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, phone: e.target.value })
                     }
-                    className="pl-10"
+                    className="pl-10 text-white placeholder-white"
                     placeholder="Enter your phone number"
                   />
                 </div>
@@ -250,7 +250,7 @@ export default function RegisterPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, password: e.target.value })
                     }
-                    className="pl-10 pr-10"
+                    className="pl-10 pr-10 text-white placeholder-white"
                     placeholder="Enter password (min 6 characters)"
                   />
                   <button
@@ -286,7 +286,7 @@ export default function RegisterPage() {
                         confirmPassword: e.target.value,
                       })
                     }
-                    className="pl-10 pr-10"
+                    className="pl-10 pr-10 text-white placeholder-white"
                     placeholder="Confirm your password"
                   />
                   <button

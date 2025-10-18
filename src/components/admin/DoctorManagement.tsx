@@ -1014,7 +1014,7 @@ export default function DoctorManagement() {
           <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 flex-1">
             <div className="relative flex-1 max-w-md">
               <Search
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-foreground/50"
                 size={20}
               />
               <input
@@ -1022,7 +1022,7 @@ export default function DoctorManagement() {
                 placeholder="Search doctors by name or email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white text-foreground placeholder:text-foreground/70 focus:outline-none focus:placeholder:text-foreground/60 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               />
             </div>
             <div>
@@ -1380,7 +1380,7 @@ export default function DoctorManagement() {
               }
               placeholder="Enter doctor's bio and qualifications..."
               rows={3}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm placeholder-gray-500"
             />
           </div>
 
@@ -2244,8 +2244,12 @@ export default function DoctorManagement() {
                       targetDate.setDate(today.getDate() + daysUntilTarget);
 
                       // Construct local Date objects to avoid timezone shift when converting to ISO
-                      const [startHour, startMinute] = newSlotStartTime.split(":").map(Number);
-                      const [endHour, endMinute] = newSlotEndTime.split(":").map(Number);
+                      const [startHour, startMinute] = newSlotStartTime
+                        .split(":")
+                        .map(Number);
+                      const [endHour, endMinute] = newSlotEndTime
+                        .split(":")
+                        .map(Number);
                       const startLocal = new Date(targetDate);
                       startLocal.setHours(startHour, startMinute, 0, 0);
                       const endLocal = new Date(targetDate);

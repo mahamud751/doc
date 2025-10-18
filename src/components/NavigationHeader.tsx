@@ -167,7 +167,7 @@ export default function NavigationHeader({
                       variant="outline"
                       className="rounded-full border-2 px-4"
                     >
-                      <LogOut className="h-4 w-4" />
+                      <LogOut className="h-4 w-4 text-white" />
                     </Button>
                   </motion.div>
                 </div>
@@ -180,7 +180,7 @@ export default function NavigationHeader({
                     <Link href="/auth/login">
                       <Button
                         variant="outline"
-                        className="rounded-full border-2 px-6"
+                        className="rounded-full border-2 px-6 text-white"
                       >
                         Login
                       </Button>
@@ -271,7 +271,7 @@ export default function NavigationHeader({
                       setIsMenuOpen(false);
                     }}
                     variant="outline"
-                    className="w-full rounded-xl border-2 flex items-center justify-center"
+                    className="w-full rounded-xl border-2 flex items-center justify-center "
                   >
                     <LogOut className="h-4 w-4 mr-2" />
                     Logout
@@ -282,7 +282,7 @@ export default function NavigationHeader({
                   <Link href="/auth/login" onClick={() => setIsMenuOpen(false)}>
                     <Button
                       variant="outline"
-                      className="w-full rounded-xl border-2"
+                      className="w-full rounded-xl border-2 text-white"
                     >
                       Login
                     </Button>

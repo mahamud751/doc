@@ -13,14 +13,15 @@
   --color-muted: #f1f5f9;
   --color-muted-foreground: #64748b;
   --color-card: #ffffff;
-  --color-card-foreground: #0f172a;
+  --color-card-foreground: #000000;
   --color-popover: #ffffff;
-  --color-popover-foreground: #0f172a;
+  --color-popover-foreground: #000000;
   --color-border: #e2e8f0;
   --color-input: #e2e8f0;
   --color-ring: #2563eb;
   --color-background: #f8fafc;
-  --color-foreground: #0f172a;
+  --color-foreground: #ffffff;
+  --color-text: #000000;
 }
 
 @theme inline {
@@ -52,13 +53,14 @@
     --color-input: #334155;
     --color-ring: #3b82f6;
     --color-background: #0f172a;
-    --color-foreground: #f1f5f9;
+    --color-foreground: #000000;
+    --color-text: #000000;
   }
 }
 
 body {
   background: var(--color-background);
-  color: var(--color-foreground);
+  color: var(--color-text);
   font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue",
     sans-serif;
@@ -134,4 +136,39 @@ body {
   transform: translateY(-5px);
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
     0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Modal simple overrides for readable placeholders */
+.modal-simple input::placeholder,
+.modal-simple textarea::placeholder {
+  color: black !important;
+  opacity: 0.85;
+}
+
+/* Global input/select text color tied to theme foreground */
+input,
+textarea {
+  color: black;
+}
+
+select {
+  color: black;
+}
+
+/* Global placeholder color tied to theme foreground (lighter via opacity) */
+input::placeholder,
+textarea::placeholder {
+  color: black !important;
+  opacity: 0.7;
+}
+/* Login page specific overrides for dark background */
+.login-form input,
+.login-form textarea {
+  color: white !important;
+}
+
+.login-form input::placeholder,
+.login-form textarea::placeholder {
+  color: white !important;
+  opacity: 0.7;
 }

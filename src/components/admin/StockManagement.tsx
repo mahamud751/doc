@@ -517,7 +517,7 @@ export default function StockManagement() {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+              className="block w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm text-sm"
             >
               <option value="">All Status</option>
               <option value="critical">Critical Stock</option>
@@ -788,7 +788,7 @@ export default function StockManagement() {
                   type: e.target.value as "IN" | "OUT",
                 })
               }
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="block w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm"
             >
               <option value="IN">Stock In (Add Inventory)</option>
               <option value="OUT">Stock Out (Remove Inventory)</option>
@@ -834,7 +834,7 @@ export default function StockManagement() {
               }
               placeholder="Enter reason for stock movement..."
               rows={3}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="block w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm placeholder-gray-500"
               required
             />
           </div>

@@ -29,7 +29,7 @@ const FormInput = React.forwardRef<HTMLInputElement, FormInputProps>(
 
     return (
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-foreground">
+        <label className="block text-sm font-semibold text-foreground">
           {label}
         </label>
         <div className="relative">

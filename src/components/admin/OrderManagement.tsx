@@ -363,7 +363,7 @@ export default function OrderManagement() {
             />
           </div>
           <div className="w-full sm:w-48">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-semibold text-foreground mb-1">
               Filter by Status
             </label>
             <select

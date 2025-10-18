@@ -117,7 +117,7 @@ function LoginContent() {
           className="mt-8 sm:mx-auto sm:w-full sm:max-w-md"
         >
           <div className="bg-card border border-border py-8 px-4 shadow-xl sm:rounded-2xl sm:px-10">
-            <form className="space-y-6" onSubmit={handleSubmit}>
+            <form className="login-form space-y-6" onSubmit={handleSubmit}>
               {successMessage && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
@@ -154,7 +154,7 @@ function LoginContent() {
                     onChange={(e) =>
                       setFormData({ ...formData, email: e.target.value })
                     }
-                    className="pl-10"
+                    className="pl-10 bg-transparent border-white/20 focus:border-white"
                     placeholder="Enter your email"
                   />
                 </div>
@@ -176,7 +176,7 @@ function LoginContent() {
                     onChange={(e) =>
                       setFormData({ ...formData, password: e.target.value })
                     }
-                    className="pl-10 pr-10"
+                    className="pl-10 pr-10 bg-transparent border-white/20 focus:border-white"
                     placeholder="Enter your password"
                   />
                   <button

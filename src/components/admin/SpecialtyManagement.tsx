@@ -502,7 +502,7 @@ export default function SpecialtyManagement() {
               }
               placeholder="Enter specialty description..."
               rows={4}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="block w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm placeholder-gray-500"
             />
           </div>
 

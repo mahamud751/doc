@@ -18,47 +18,83 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { 
-      appointment_id, 
-      patient_id, 
-      diagnosis, 
-      instructions, 
+    const {
+      appointment_id,
+      patient_id,
+      diagnosis,
+      instructions,
       follow_up_instructions,
       drugs,
-      lab_tests
+      lab_tests,
     } = body;
 
     // Validate required fields
-    if (!appointment_id || !patient_id || !diagnosis) {
+    if (!patient_id || !diagnosis) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        {
+          error:
+            "Missing required fields: patient_id and diagnosis are required",
+        },
         { status: 400 }
       );
     }
 
-    // Check if appointment exists and belongs to this doctor
-    const appointment = await prisma.appointment.findUnique({
-      where: { id: appointment_id },
-    });
+    let validAppointmentId = appointment_id;
 
-    if (!appointment) {
-      return NextResponse.json(
-        { error: "Appointment not found" },
-        { status: 404 }
-      );
-    }
+    // If no appointment_id is provided, we'll create a temporary one
+    if (!appointment_id) {
+      // Check if patient exists
+      const patient = await prisma.user.findUnique({
+        where: { id: patient_id },
+      });
 
-    if (appointment.doctor_id !== decoded.userId) {
-      return NextResponse.json(
-        { error: "Unauthorized to create prescription for this appointment" },
-        { status: 403 }
-      );
+      if (!patient) {
+        return NextResponse.json(
+          { error: "Patient not found" },
+          { status: 404 }
+        );
+      }
+
+      // Create a temporary appointment for this prescription
+      const tempAppointment = await prisma.appointment.create({
+        data: {
+          patient_id: patient_id,
+          doctor_id: decoded.userId,
+          status: "COMPLETED",
+          payment_status: "COMPLETED",
+          meeting_type: "CHAT",
+          scheduled_at: new Date(),
+          duration_minutes: 30,
+          diagnosis: diagnosis,
+        },
+      });
+
+      validAppointmentId = tempAppointment.id;
+    } else {
+      // Check if appointment exists and belongs to this doctor
+      const appointment = await prisma.appointment.findUnique({
+        where: { id: appointment_id },
+      });
+
+      if (!appointment) {
+        return NextResponse.json(
+          { error: "Appointment not found" },
+          { status: 404 }
+        );
+      }
+
+      if (appointment.doctor_id !== decoded.userId) {
+        return NextResponse.json(
+          { error: "Unauthorized to create prescription for this appointment" },
+          { status: 403 }
+        );
+      }
     }
 
     // Create prescription
     const prescription = await prisma.prescription.create({
       data: {
-        appointment_id,
+        appointment_id: validAppointmentId,
         doctor_id: decoded.userId,
         patient_id,
         diagnosis,
